@@ -4,6 +4,9 @@ from flask import jsonify
 
 app = Flask(__name__)
 
+def create_file(file_id):
+    pass
+
 def does_file_exist(file_id):
     pass
 
@@ -21,31 +24,11 @@ def api():
     if request.method == 'POST':
         if operation == 'store':
             if not does_file_exist(file_id):
-                return jsonify({
-                    'status': 'error',
-                    'error_message': 'File ID: {0} does not exist'.format(file_id)
-                })
-            else:
-                bytes = request.args.get('bytes')
-                if bytes:
-                    try:
-                        write_(file_id, bytes)
-                        return jsonify({
-                            'status': 'success'
-                        })
-                    except Exception as e:
-                        return jsonify({
-                            'status': 'error',
-                            'error_message': e
-                        })
-                else:
-                    return jsonify({
-                        'status': 'error',
-                        'error_message': 'You must provide bytes to write to the file'
-                    })
-            else:
+                create_file(file_id)
+            bytes = request.args.get('bytes')
+            if bytes:
                 try:
-                    write_(file_id)
+                    write_(file_id, bytes)
                     return jsonify({
                         'status': 'success'
                     })
@@ -54,6 +37,11 @@ def api():
                         'status': 'error',
                         'error_message': e
                     })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'error_message': 'You must provide bytes to write to the file'
+                })
         else:
             return jsonify({
                 'status': 'error',

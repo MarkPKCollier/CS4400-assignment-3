@@ -36,7 +36,7 @@ def api():
         else:
             return jsonify({
                 'status': 'error',
-                'error_message': 'Failed to lock file: {0}'.format(file_id)
+                'error_message': 'Timeout: failed to lock file: {0}'.format(file_id)
             })
     elif operation == 'unlock':
         unlock(file_id)
