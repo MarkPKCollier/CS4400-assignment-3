@@ -45,13 +45,13 @@ I implement a flat file system, so the mechanisms specified in AFS v2 for reduci
 
 *The client side API is:*
 
-open(file_id, mode)
+open(file_name, mode)
 
-close(file_id)
+close(file_name)
 
-read(file_id, num_bytes) -> num_bytes is optional, if unspecified the whole file is read
+read(file_name, num_bytes) -> num_bytes is optional, if unspecified the whole file is read
 
-write(file_id, bytes)
+write(file_name, bytes)
 
 ---
 
