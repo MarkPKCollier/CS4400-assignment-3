@@ -1,5 +1,16 @@
 # CS4400-assignment-3
 
+Plan:
+
+- Specify client/server API
+- Implement locking service
+- Implement directory service
+- Implement security service
+- Implement replication service
+- Implement in memory client side caching
+- Implement a client side application that demonstrates usage of the file system
+- Implement transactions
+
 Distributed file system with:
 
 - Distributed Transparent File Access
@@ -20,11 +31,13 @@ I use Python with the Flask library to implement each component and its lightwig
 
 I implement a AFS style distributed file system. In particular I implement [AFS v2](http://pages.cs.wisc.edu/~remzi/OSTEP/dist-afs.pdf).
 
-The server offers open and close operations and promises to notify clients to changes in the file state via callbacks. This means the server maintains some state on each open request, but empirically this was found necessary to scale AFS.
+The server offers fetch and store operations and promises to notify clients to changes in the file state via callbacks. This means the server maintains some state on each fetch request, but empirically this was found necessary to scale AFS.
 
-Each client maintains a lightweight HTTP server which accepts callbacks and invalidates the local cache accordingly.
+The server exposes a RESTful API that the client communicates with. The client is a Python library that can be imported into another Python program and provides transparent access to the distributed file system. A user of this library would see little difference to using the standard Python I/O library.
 
-When a file is opened the client caches it locally and subsequent read and write operations are made locally. When the file is closed, these changes are pushed to the server.
+Transparently to the library user, each client maintains a lightweight HTTP server which accepts callbacks from the server and invalidates the local cache accordingly.
+
+When a file is opened the client caches it locally and subsequent read and write operations are made locally. When the file is closed, any changes are pushed to the server.
 
 I implement a flat file system, so the mechanisms specified in AFS v2 for reducing server load via caching directory traversals are unnecessary.
 
@@ -62,7 +75,9 @@ File are replicated across different server nodes with consistency maintained by
 
 ### Caching
 
-Parts of files are cached in memory on the client side.
+As per the AFS specification, clients cache files locally. On each client side open operation, a fetch call is made to the file server. The results of this call are stored to disk locally.
+
+Additionally I implement in memory file caching on the client side.
 
 ### Transactions
 

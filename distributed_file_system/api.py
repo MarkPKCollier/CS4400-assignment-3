@@ -13,7 +13,7 @@ def read_(file_id, mode):
 def write_(file_id, bytes):
     pass
 
-@app.route("/", methods=['GET', 'POST', 'PUT'])
+@app.route("/", methods=['GET', 'POST'])
 def api():
     operation = request.args.get('operation')
     file_id = request.args.get('file_id')
