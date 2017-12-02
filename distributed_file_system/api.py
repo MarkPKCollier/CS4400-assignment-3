@@ -35,7 +35,7 @@ def teardown_request(exception):
     if db is not None:
         db.close()
 
-# g.db.execute('insert into entries (title, text) values (?, ?)',
+# g.db.execute('insert into files (title, text) values (?, ?)',
 #                  [request.form['title'], request.form['text']])
 # g.db.commit()
 
