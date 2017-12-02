@@ -28,7 +28,7 @@ When a file is opened the client caches it locally and subsequent read and write
 
 I implement a flat file system, so the mechanisms specified in AFS v2 for reducing server load via caching directory traversals are unnecessary.
 
-The client side API is
+*The client side API is:*
 
 ---
 
@@ -40,7 +40,7 @@ read(file_id, num_bytes) -> num_bytes is optional, if unspecified the whole file
 
 write(file_id, bytes)
 
-The server side API is
+*The server side API is:*
 
 ---
 
