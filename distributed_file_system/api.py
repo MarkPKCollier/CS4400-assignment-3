@@ -1,6 +1,14 @@
 from flask import Flask
 from flask import request
 from flask import jsonify
+import json
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--port_num', type=int)
+args = parser.parse_args()
+
+port_num = args.port_num
 
 from flask import g
 import os
@@ -25,6 +33,8 @@ def init_db():
             db.cursor().executescript(f.read())
         db.commit()
 
+init_db()
+
 @app.before_request
 def before_request():
     g.db = connect_db()
@@ -35,32 +45,31 @@ def teardown_request(exception):
     if db is not None:
         db.close()
 
-# g.db.execute('insert into files (title, text) values (?, ?)',
-#                  [request.form['title'], request.form['text']])
-# g.db.commit()
-
-def create_file(file_id):
-    pass
-
 def does_file_exist(file_id):
-    pass
+    return read_(file_id)
 
-def read_(file_id, mode):
-    pass
+def read_(file_id):
+    cur = g.db.execute('select file from files where file_id = (?)', (file_id, ))
+    res = cur.fetchone()
+    return res[0] if res else res
 
 def write_(file_id, bytes):
-    pass
+    g.db.execute('replace into files (file_id, file) values (?, ?)', (file_id, bytes))
+    g.db.commit()
 
 @app.route("/", methods=['GET', 'POST'])
 def api():
-    operation = request.args.get('operation')
-    file_id = request.args.get('file_id')
+    if request.method == 'GET':
+        params = request.args
+    else:
+        params = request.form
+
+    operation = params.get('operation')
+    file_id = params.get('file_id')
     
     if request.method == 'POST':
         if operation == 'store':
-            if not does_file_exist(file_id):
-                create_file(file_id)
-            bytes = request.args.get('bytes')
+            bytes = params.get('bytes')
             if bytes:
                 try:
                     write_(file_id, bytes)
@@ -91,23 +100,16 @@ def api():
                 })
 
             else:
-                mode = request.args.get('mode')
-                if mode:
-                    try:
-                        res = read_(file_id, mode)
-                        return jsonify({
-                            'status': 'success',
-                            'file_contents': res
-                        })
-                    except Exception as e:
-                        return jsonify({
-                            'status': 'error',
-                            'error_message': e
-                        })
-                else:
+                try:
+                    res = read_(file_id)
+                    return jsonify({
+                        'status': 'success',
+                        'file_contents': res
+                    })
+                except Exception as e:
                     return jsonify({
                         'status': 'error',
-                        'error_message': 'You must specify a mode in which to fetch the file'
+                        'error_message': e
                     })
         else:
             return jsonify({
@@ -116,5 +118,5 @@ def api():
             })
 
 if __name__ == "__main__":
-    app.run()
+    app.run(port=port_num)
 

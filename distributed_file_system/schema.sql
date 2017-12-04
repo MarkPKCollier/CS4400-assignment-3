@@ -1,4 +1,4 @@
-drop table if exists file;
+drop table if exists files;
 create table files (
   file_id char(500) primary key,
   file LONGBLOB not null
