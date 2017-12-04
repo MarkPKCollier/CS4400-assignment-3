@@ -89,3 +89,19 @@ A simple transaction service enables the user to batch queries into atomic units
 ### Lock Service
 
 A read-many, write-one style locking service is provided.
+
+A client locks a file whenever they open a file in write mode. The client calls a RESTful lock service in order to lock/unlock a particular file id.
+
+In order to ensure the lock service scales to a large distributed system we maintain a database containing the lock status of each file id. Thus I don't maintain locks in memory, allowing the number of locks to scale to the limits of the database (disk space) rather than memory.
+
+The lock service locks the database (using a reentrant lock from the [Python threading library](https://docs.python.org/2/library/threading.html)). It then applies the lock/unlock operation to the database for that file id.
+
+In order to enable parallel handling of lock/unlock requests, I maintain a thread pool in memory. Each file id is hashed to an integer and this integer is used to find that file's reentrant lock.
+
+if pool_size = number of threads in thread pool
+and num_files = number of file ids in the distributed system
+
+The memory requirements of the lock service is O(pool_size) and the disk space requirements are O(num_files). But we can service up to pool_size parallel lock/unlock requests.
+
+
+
