@@ -101,7 +101,7 @@ In order to enable parallel handling of lock/unlock requests, I maintain a threa
 if *pool_size = number of threads in thread pool*
 and *num_files = number of file ids in the distributed system*
 
-Then the memory requirements of the lock service is O(*pool_size*) and the disk space requirements are O(*num_files*). But we can service up to *pool_size* parallel lock/unlock requests. So we choose how much parallisation of the lock service is desirable while maintain constant disk space requirements.
+Then the memory requirements of the lock service is O(*pool_size*) and the disk space requirements are O(*num_files*). But we can service up to *pool_size* parallel lock/unlock requests. So we choose how much parallisation of the lock service is desirable while maintaining constant disk space requirements.
 
 
 
