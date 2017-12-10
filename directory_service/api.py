@@ -1,6 +1,13 @@
 from flask import Flask
 from flask import request
 from flask import jsonify
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--port_num', type=int)
+args = parser.parse_args()
+
+port_num = args.port_num
 
 app = Flask(__name__)
 
@@ -41,5 +48,5 @@ def api():
     })
 
 if __name__ == "__main__":
-    app.run()
+    app.run(port=port_num)
 

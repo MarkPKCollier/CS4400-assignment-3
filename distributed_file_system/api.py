@@ -53,11 +53,25 @@ def read_(file_id):
     res = cur.fetchone()
     return res[0] if res else res
 
-def write_(file_id, bytes):
-    g.db.execute('replace into files (file_id, file) values (?, ?)', (file_id, bytes))
+def write_(file_id, bytes, transaction_id):
+    if transaction_id:
+        g.db.execute('replace into files (file_id, file) values (?, ?)', (file_id, bytes))
+        g.db.commit()
+    else:
+        g.db.execute('replace into files (file_id, shadow_file) values (?, ?)', (file_id, bytes))
+        g.db.commit()
+
+def commit_transaction(transaction_id):
+    cur = g.db.execute('select (file_id, shadow_file) from files where transaction_id = (?)', (transaction_id))
+    for file_id, shadow_file in cur.fetchall():
+        g.db.execute('replace into files (file_id, file, shadow_file, transaction_id) values (?, ?)', (file_id, shadow_file, None, None))
+        g.db.commit()
+
+def cancel_transaction(transaction_id):
+    g.db.execute('replace into files (transaction_id, shadow_file) values (?, ?) where transaction_id = (?)', (None, None, transaction_id))
     g.db.commit()
 
-@app.route("/", methods=['GET', 'POST'])
+@app.route("/", methods=['GET', 'POST', 'PUT'])
 def api():
     if request.method == 'GET':
         params = request.args
@@ -70,9 +84,10 @@ def api():
     if request.method == 'POST':
         if operation == 'store':
             bytes = params.get('bytes')
+            transaction_id = params.get('transaction_id')
             if bytes:
                 try:
-                    write_(file_id, bytes)
+                    write_(file_id, bytes, transaction_id)
                     return jsonify({
                         'status': 'success'
                     })
@@ -115,6 +130,42 @@ def api():
             return jsonify({
                 'status': 'error',
                 'error_message': 'The only operation allowed with the GET method is fetch, you specified: {0}'.format(operation)
+            })
+
+    elif request.method == 'PUT':
+        transaction_id = params.get('transaction_id')
+        if not transaction_id:
+            return jsonify({
+                'status': 'error',
+                'error_message': 'You must specify a transaction id'
+            })
+
+        if operation == 'commit_transaction':
+            try:
+                commit_transaction(transaction_id)
+                return jsonify({
+                    'status': 'success'
+                })
+            except Exception as e:
+                return jsonify({
+                    'status': 'error',
+                    'error_message': e
+                })
+        elif operation == 'cancel_transaction':
+            try:
+                cancel_transaction(transaction_id)
+                return jsonify({
+                    'status': 'success'
+                })
+            except Exception as e:
+                return jsonify({
+                    'status': 'error',
+                    'error_message': e
+                })
+        else:
+            return jsonify({
+                'status': 'error',
+                'error_message': 'The only operations allowed with the PUT method are (commit_transaction/cancel_transaction), you specified: {0}'.format(operation)
             })
 
 if __name__ == "__main__":
