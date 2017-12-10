@@ -14,13 +14,16 @@ class Client:
         self.file_positions = {}
         self.file_name_to_server_id = {}
         self.transaction_id = None
-        self.session_keys = {}
         self.sessions_mgr = SessionsManager(user_id, password, security_service_ip)
 
     def get_file_server_details(self, file_name, lock=False):
         # get server, file_id from the directory service
+        replication_service_session_key, encrypted_replication_service_session_key = self.get_session_key('replication service')
+
         r = requests.get(self.directory_service_ip, params={
-            'file_name': file_name
+            'file_name': file_name,
+            'replication_service_session_key': replication_service_session_key,
+            'encrypted_replication_service_session_key': encrypted_replication_service_session_key
         })
         res = self.sessions_mgr.decrypt_msg(r.json(), 'directory service')
         if res.get('status') == 'success':

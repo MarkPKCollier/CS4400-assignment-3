@@ -56,7 +56,6 @@ def api():
 
     file_id = file_name.replace('/', '_')
 
-
     server = get_file_server(file_id)
     if server:
         return jsonify(encrypt_msg({
