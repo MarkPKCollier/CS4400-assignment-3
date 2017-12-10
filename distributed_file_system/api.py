@@ -53,6 +53,14 @@ def teardown_request(exception):
 def does_file_exist(file_id):
     return read_(file_id)
 
+def is_stale_copy(file_id, user_id):
+    cur = g.db.execute('select last_update_user_id from files where file_id = (?)', (file_id, ))
+    res = cur.fetchone()
+    if not res or not res[0] == user_id:
+        return True
+    else:
+        return False
+
 def read_(file_id):
     cur = g.db.execute('select file from files where file_id = (?)', (file_id, ))
     res = cur.fetchone()
@@ -74,7 +82,7 @@ def get_file_servers(file_id, replication_service_key, encrytped_replication_ser
     else:
         return None
 
-def broadcast_updated_file(file_id, bytes,
+def broadcast_updated_file(file_id, bytes, user_id,
     session_key, encrypted_session_key,
     replication_service_session_key, encrypted_replication_service_session_key):
     
@@ -88,26 +96,26 @@ def broadcast_updated_file(file_id, bytes,
             'transaction_id': None,
             'replication_service_session_key': replication_service_session_key,
             'encrypted_replication_service_session_key': encrypted_replication_service_session_key
-            'is_broadcast': True
-
+            'is_broadcast': True,
+            'user_id': user_id
         }, session_key)
         msg['encrypted_session_key'] = encrypted_session_key
 
         r = requests.post(server, data=msg)
 
-def write_(file_id, bytes, transaction_id,
+def write_(file_id, bytes, transaction_id, user_id,
     session_key, encrypted_session_key,
     replication_service_session_key, encrypted_replication_service_session_key, broadcast=False):
-    if transaction_id:
-        g.db.execute('replace into files (file_id, file) values (?, ?)', (file_id, bytes))
+    if transaction_id is None:
+        g.db.execute('replace into files (file_id, file, last_update_user_id) values (?, ?)', (file_id, bytes, user_id))
         g.db.commit()
         if broadcast:
-            broadcast_updated_file(file_id, bytes, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
+            broadcast_updated_file(file_id, bytes, user_id, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
     else:
         g.db.execute('replace into files (file_id, shadow_file) values (?, ?)', (file_id, bytes))
         g.db.commit()
 
-def commit_transaction(transaction_id,
+def commit_transaction(transaction_id, user_id,
     session_key, encrypted_session_key,
     replication_service_session_key, encrypted_replication_service_session_key):
     cur = g.db.execute('select (file_id, shadow_file) from files where transaction_id = (?)', (transaction_id))
@@ -115,7 +123,7 @@ def commit_transaction(transaction_id,
         g.db.execute('replace into files (file_id, file, shadow_file, transaction_id) values (?, ?)', (file_id, shadow_file, None, None))
         g.db.commit()
 
-        broadcast_updated_file(file_id, shadow_file, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
+        broadcast_updated_file(file_id, shadow_file, user_id, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
 
 def cancel_transaction(transaction_id):
     g.db.execute('replace into files (transaction_id, shadow_file) values (?, ?) where transaction_id = (?)', (None, None, transaction_id))
@@ -149,7 +157,8 @@ def api():
 
                 try:
                     is_broadcast = params.get('is_broadcast')
-                    write_(file_id, bytes, transaction_id, session_key, params.get('encrypted_session_key'), replication_service_session_key, encrypted_replication_service_session_key, broadcast=(is_broadcast is None or not is_broadcast))
+                    user_id = params.get('user_id')
+                    write_(file_id, bytes, user_id, transaction_id, session_key, params.get('encrypted_session_key'), replication_service_session_key, encrypted_replication_service_session_key, broadcast=(is_broadcast is None or not is_broadcast))
                     return jsonify(encrypt_msg({
                         'status': 'success'
                     }, session_key))
@@ -188,10 +197,17 @@ def api():
                         'status': 'error',
                         'error_message': e
                     }, session_key))
+        elif operation == 'poll':
+            user_id = params.get('user_id')
+            return jsonify(encrypt_msg({
+                'status': 'success',
+                'is_stale_copy': is_stale_copy(file_id, user_id)
+            }, session_key))
+
         else:
             return jsonify(encrypt_msg({
                 'status': 'error',
-                'error_message': 'The only operation allowed with the GET method is fetch, you specified: {0}'.format(operation)
+                'error_message': 'The only operations allowed with the GET method are (fetch/poll), you specified: {0}'.format(operation)
             }, session_key))
 
     elif request.method == 'PUT':
@@ -213,7 +229,8 @@ def api():
                 }, session_key))
 
             try:
-                commit_transaction(transaction_id, session_key, params.get('encrypted_session_key'), replication_service_session_key, encrypted_replication_service_session_key)
+                user_id = params.get('user_id')
+                commit_transaction(transaction_id, user_id, session_key, params.get('encrypted_session_key'), replication_service_session_key, encrypted_replication_service_session_key)
                 return jsonify(encrypt_msg({
                     'status': 'success'
                 }, session_key))

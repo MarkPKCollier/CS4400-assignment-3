@@ -1,5 +1,6 @@
 import requests
 from security_lib import encrypt_str, decrypt_str, encrypt_msg, decrypt_msg, SessionsManager
+from client_side_caching_lib import is_stale_file
 from datetime import datetime
 
 class Client:
@@ -56,24 +57,27 @@ class Client:
     def open(self, file_name, mode):
         server, file_id = self.get_file_server_details(file_name, lock=mode == 'write')
 
-        r = requests.get(server, data=self.sessions_mgr.encrypt_msg({
-            'operation', 'fetch',
-            'file_id': file_id,
-            'mode': mode,
-            'transaction_id': self.transaction_id
-        }, 'file server'))
-        res = self.sessions_mgr.decrypt_msg(r.json(), 'file server')
-        if res.get('status') == 'success':
-            self.file_modes[file_name] = mode
-            self.file_positions[file_name] = 0
-            f = open(file_name.replace('/', '_'), 'wb')
-            try:
-                f.write(res.get('file_contents'))
-            finally:
-                f.close()
-            return file_name
+        if is_stale_file(server, file_id, self.user_id, self.sessions_mgr):
+            r = requests.get(server, data=self.sessions_mgr.encrypt_msg({
+                'operation', 'fetch',
+                'file_id': file_id,
+                'mode': mode,
+                'transaction_id': self.transaction_id
+            }, 'file server'))
+            res = self.sessions_mgr.decrypt_msg(r.json(), 'file server')
+            if res.get('status') == 'success':
+                self.file_modes[file_name] = mode
+                self.file_positions[file_name] = 0
+                f = open(file_name.replace('/', '_'), 'wb')
+                try:
+                    f.write(res.get('file_contents'))
+                finally:
+                    f.close()
+                return file_name
+            else:
+                raise Exception(res.get('error_message'))
         else:
-            raise Exception(res.get('error_message'))
+            return file_name
 
     def close(self, file_name):
         if self.file_modes[file_name] == 'write':
@@ -91,7 +95,8 @@ class Client:
                 'bytes': bytes,
                 'transaction_id': self.transaction_id,
                 'replication_service_session_key': replication_service_session_key,
-                'encrypted_replication_service_session_key': encrypted_replication_service_session_key
+                'encrypted_replication_service_session_key': encrypted_replication_service_session_key,
+                'user_id': self.user_id
             }, 'file server'))
             res = self.sessions_mgr.decrypt_msg(r.json(), 'file server')
             if res.get('status') == 'success':
@@ -165,7 +170,8 @@ class Client:
             'lock_service_session_key': lock_service_session_key,
             'encrypted_lock_service_session_key': encrytped_lock_service_session_key,
             'replication_service_session_key': replication_service_session_key,
-            'encrypted_replication_service_session_key': encrypted_replication_service_session_key
+            'encrypted_replication_service_session_key': encrypted_replication_service_session_key,
+            'user_id': self.user_id
         }, 'transaction service'))
         res = self.sessions_mgr.decrypt_msg(r.json(), 'transaction service')
         if res.get('status') == 'error':
