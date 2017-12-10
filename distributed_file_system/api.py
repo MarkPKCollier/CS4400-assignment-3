@@ -23,10 +23,6 @@ USERNAME = 'admin'
 PASSWORD = 'default'
 
 FS_SERVER_SECRET_KEY = 'file server key'
-LOCK_SERVICE_SECRET_KEY = 'lock service key'
-TRANSACTION_SERVICE_SECRET_KEY = 'transaction service key'
-REPLICATION_SERVICE_SECRET_KEY = 'replication service key'
-DIRECTORY_SERVICE_SECRET_KEY = 'directory service key'
 
 app = Flask(__name__)
 app.config.from_object(__name__)
