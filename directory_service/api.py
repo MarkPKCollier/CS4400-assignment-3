@@ -1,6 +1,7 @@
 from flask import Flask
 from flask import request
 from flask import jsonify
+from security_lib import encrypt_msg, get_session_key_decrypt_msg
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -8,6 +9,12 @@ parser.add_argument('--port_num', type=int)
 args = parser.parse_args()
 
 port_num = args.port_num
+
+FS_SERVER_SECRET_KEY = 'file server key'
+LOCK_SERVICE_SECRET_KEY = 'lock service key'
+TRANSACTION_SERVICE_SECRET_KEY = 'transaction service key'
+REPLICATION_SERVICE_SECRET_KEY = 'replication service key'
+DIRECTORY_SERVICE_SECRET_KEY = 'directory service key'
 
 app = Flask(__name__)
 
@@ -31,21 +38,23 @@ def find_or_create_file(file_id):
 
 @app.route("/", methods=['GET'])
 def api():
-    file_name = request.args.get('file_name')
+    session_key, params = get_session_key_decrypt_msg(request.args, DIRECTORY_SERVICE_SECRET_KEY)
+
+    file_name = params.get('file_name')
 
     if not file_name:
-        return jsonify({
+        return jsonify(encrypt_msg({
             'status': 'error',
             'error_message': 'You must specify a file_name'
-        })
+        }, session_key))
 
     file_id = file_name.replace('/', '_')
     server = find_or_create_file(file_id)
-    return jsonify({
+    return jsonify(encrypt_msg({
         'status': 'success',
         'server': server,
         'file_id': file_id
-    })
+    }, session_key))
 
 if __name__ == "__main__":
     app.run(port=port_num)

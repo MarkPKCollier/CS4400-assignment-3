@@ -2,6 +2,7 @@ from flask import Flask
 from flask import request
 from flask import jsonify
 import json
+from security_lib import encrypt_msg, get_session_key_decrypt_msg
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -20,6 +21,12 @@ DEBUG = True
 SECRET_KEY = 'development key'
 USERNAME = 'admin'
 PASSWORD = 'default'
+
+FS_SERVER_SECRET_KEY = 'file server key'
+LOCK_SERVICE_SECRET_KEY = 'lock service key'
+TRANSACTION_SERVICE_SECRET_KEY = 'transaction service key'
+REPLICATION_SERVICE_SECRET_KEY = 'replication service key'
+DIRECTORY_SERVICE_SECRET_KEY = 'directory service key'
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -78,6 +85,8 @@ def api():
     else:
         params = request.form
 
+    session_key, params = get_session_key_decrypt_msg(params, FS_SERVER_SECRET_KEY)
+
     operation = params.get('operation')
     file_id = params.get('file_id')
     
@@ -88,85 +97,85 @@ def api():
             if bytes:
                 try:
                     write_(file_id, bytes, transaction_id)
-                    return jsonify({
+                    return jsonify(encrypt_msg({
                         'status': 'success'
-                    })
+                    }, session_key))
                 except Exception as e:
-                    return jsonify({
+                    return jsonify(encrypt_msg({
                         'status': 'error',
                         'error_message': e
-                    })
+                    }, session_key))
             else:
-                return jsonify({
+                return jsonify(encrypt_msg({
                     'status': 'error',
                     'error_message': 'You must provide bytes to write to the file'
-                })
+                }, session_key))
         else:
-            return jsonify({
+            return jsonify(encrypt_msg({
                 'status': 'error',
                 'error_message': 'The only operation allowed with the POST method is store, you specified: {0}'.format(operation)
-            })
+            }, session_key))
     elif request.method == 'GET':
         if operation == 'fetch':
             if not does_file_exist(file_id):
-                return jsonify({
+                return jsonify(encrypt_msg({
                     'status': 'error',
                     'error_message': 'File ID: {0} does not exist'.format(file_id)
-                })
+                }, session_key))
 
             else:
                 try:
                     res = read_(file_id)
-                    return jsonify({
+                    return jsonify(encrypt_msg({
                         'status': 'success',
                         'file_contents': res
-                    })
+                    }, session_key))
                 except Exception as e:
-                    return jsonify({
+                    return jsonify(encrypt_msg({
                         'status': 'error',
                         'error_message': e
-                    })
+                    }, session_key))
         else:
-            return jsonify({
+            return jsonify(encrypt_msg({
                 'status': 'error',
                 'error_message': 'The only operation allowed with the GET method is fetch, you specified: {0}'.format(operation)
-            })
+            }, session_key))
 
     elif request.method == 'PUT':
         transaction_id = params.get('transaction_id')
         if not transaction_id:
-            return jsonify({
+            return jsonify(encrypt_msg({
                 'status': 'error',
                 'error_message': 'You must specify a transaction id'
-            })
+            }, session_key))
 
         if operation == 'commit_transaction':
             try:
                 commit_transaction(transaction_id)
-                return jsonify({
+                return jsonify(encrypt_msg({
                     'status': 'success'
-                })
+                }, session_key))
             except Exception as e:
-                return jsonify({
+                return jsonify(encrypt_msg({
                     'status': 'error',
                     'error_message': e
-                })
+                }, session_key))
         elif operation == 'cancel_transaction':
             try:
                 cancel_transaction(transaction_id)
-                return jsonify({
+                return jsonify(encrypt_msg({
                     'status': 'success'
-                })
+                }, session_key))
             except Exception as e:
-                return jsonify({
+                return jsonify(encrypt_msg({
                     'status': 'error',
                     'error_message': e
-                })
+                }, session_key))
         else:
-            return jsonify({
+            return jsonify(encrypt_msg({
                 'status': 'error',
                 'error_message': 'The only operations allowed with the PUT method are (commit_transaction/cancel_transaction), you specified: {0}'.format(operation)
-            })
+            }, session_key))
 
 if __name__ == "__main__":
     app.run(port=port_num)

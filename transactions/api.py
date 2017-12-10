@@ -1,9 +1,7 @@
 from flask import Flask
 from flask import request
 from flask import jsonify
-import threading
-import time
-import json
+from security_lib import encrypt_msg, get_session_key_decrypt_msg
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -26,6 +24,12 @@ DEBUG = True
 SECRET_KEY = 'development key'
 USERNAME = 'admin'
 PASSWORD = 'default'
+
+FS_SERVER_SECRET_KEY = 'file server key'
+LOCK_SERVICE_SECRET_KEY = 'lock service key'
+TRANSACTION_SERVICE_SECRET_KEY = 'transaction service key'
+REPLICATION_SERVICE_SECRET_KEY = 'replication service key'
+DIRECTORY_SERVICE_SECRET_KEY = 'directory service key'
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -56,63 +60,80 @@ def get_new_transaction_id():
     g.db.commit()
     return '_transaction_{0}'.format(cur.lastrowid)
 
-def broadcast_commit(transaction_id):
+def broadcast_operation(operation, transaction_id, file_server_session_key, lock_service_session_key):
     # broadcast first to file servers, when they have completed, then send to lock service
-    for ip in file_server_ips + [lock_service_ip]:
-        r = requests.put(ip, data={
-            'operation', 'commit_transaction',
+    for ip in file_server_ips:
+        r = requests.put(ip, data=encrypt_msg({
+            'operation', operation,
             'transaction_id': transaction_id
-        })
+        }, file_server_session_key))
+
+    r = requests.put(lock_service_ip, data=encrypt_msg({
+        'operation', operation,
+        'transaction_id': transaction_id
+    }, lock_service_session_key))
+
+def broadcast_commit(transaction_id, file_server_session_key, lock_service_session_key):
+    broadcast_operation('commit_transaction', transaction_id, file_server_session_key, lock_service_session_key)
 
 def broadcast_cancel(transaction_id):
-    # broadcast first to file servers, when they have completed, then send to lock service
-    for ip in file_server_ips + [lock_service_ip]:
-        r = requests.put(ip, data={
-            'operation', 'cancel_transaction',
-            'transaction_id': transaction_id
-        })
+    broadcast_operation('cancel_transaction', transaction_id, file_server_session_key, lock_service_session_key)
 
 
 @app.route("/", methods=['POST'])
 def api():
-    operation = request.form.get('operation')
+    session_key, params = get_session_key_decrypt_msg(request.form, DIRECTORY_SERVICE_SECRET_KEY)
+
+    operation = params.get('operation')
+    file_server_session_key = params.get('file_server_session_key')
+    lock_service_session_key = params.get('lock_service_session_key')
 
     if not operation:
-        return jsonify({
+        return jsonify(encrypt_msg({
             'status': 'error',
             'error_message': 'You must specify an operation from (start/commit/cancel)'
-        })
+        }, session_key))
+    if not file_server_session_key:
+        return jsonify(encrypt_msg({
+            'status': 'error',
+            'error_message': 'You must specify a file server session key'
+        }, session_key))
+    if not lock_service_session_key:
+        return jsonify(encrypt_msg({
+            'status': 'error',
+            'error_message': 'You must specify a lock service session key'
+        }, session_key))
     
     if operation == 'start_transaction':
         t_id = get_new_transaction_id()
-        return jsonify({
+        return jsonify(encrypt_msg({
             'status': 'success',
             'transaction_id': t_id
-        })
+        }, session_key))
     else:
-        transaction_id = request.form.get('transaction_id')
+        transaction_id = params.get('transaction_id')
 
         if not transaction_id:
-            return jsonify({
+            return jsonify(encrypt_msg({
                 'status': 'error',
                 'error_message': 'You must specify a transaction id'
-            })
+            }, session_key))
 
         if operation == 'commit_transaction':
-            broadcast_commit(transaction_id)
-            return jsonify({
+            broadcast_commit(transaction_id, file_server_session_key, lock_service_session_key)
+            return jsonify(encrypt_msg({
                 'status': 'success'
-            })
+            }, session_key))
         elif operation == 'cancel_transaction':
-            broadcast_cancel(transaction_id)
-            return jsonify({
+            broadcast_cancel(transaction_id, file_server_session_key, lock_service_session_key)
+            return jsonify(encrypt_msg({
                 'status': 'success'
-            })
+            }, session_key))
         else:
-            return jsonify({
+            return jsonify(encrypt_msg({
                 'status': 'error',
                 'error_message': 'You must specify an operation from (start/commit/cancel), you specified: {0}'.format(operation)
-            })
+            }, session_key))
 
 if __name__ == "__main__":
     app.run(port=port_num)

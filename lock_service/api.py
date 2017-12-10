@@ -1,6 +1,7 @@
 from flask import Flask
 from flask import request
 from flask import jsonify
+from security_lib import encrypt_msg, get_session_key_decrypt_msg
 import threading
 import time
 import json
@@ -22,6 +23,12 @@ DEBUG = True
 SECRET_KEY = 'development key'
 USERNAME = 'admin'
 PASSWORD = 'default'
+
+FS_SERVER_SECRET_KEY = 'file server key'
+LOCK_SERVICE_SECRET_KEY = 'lock service key'
+TRANSACTION_SERVICE_SECRET_KEY = 'transaction service key'
+REPLICATION_SERVICE_SECRET_KEY = 'replication service key'
+DIRECTORY_SERVICE_SECRET_KEY = 'directory service key'
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -93,54 +100,56 @@ def cancel_transaction(transaction_id):
 
 @app.route("/", methods=['POST', 'PUT'])
 def api():
-    operation = request.form.get('operation')
+    session_key, params = get_session_key_decrypt_msg(request.form, LOCK_SERVICE_SECRET_KEY)
+
+    operation = params.get('operation')
 
     if not operation:
-        return jsonify({
+        return jsonify(encrypt_msg({
             'status': 'error',
             'error_message': 'You must specify an operation from (lock/unlock)'
-        })
+        }, session_key))
     
     if request.method == 'POST':
-        file_id = request.form.get('file_id')
+        file_id = params.get('file_id')
 
         if not file_id:
-            return jsonify({
+            return jsonify(encrypt_msg({
                 'status': 'error',
                 'error_message': 'You must specify a file_id'
-            })
+            }, session_key))
 
         if operation == 'lock':
             res = lock(file_id)
             if res:
-                return jsonify({
+                return jsonify(encrypt_msg({
                     'status': 'success'
-                })
+                }, session_key))
             else:
-                return jsonify({
+                return jsonify(encrypt_msg({
                     'status': 'error',
                     'error_message': 'Timeout: failed to lock file: {0}'.format(file_id)
-                })
+                }, session_key))
         elif operation == 'unlock':
             unlock(file_id)
-            return jsonify({
+            return jsonify(encrypt_msg({
                 'status': 'success'
-            })
+            }, session_key))
 
     elif request.method == 'PUT':
         transaction_id = params.get('transaction_id')
         if not transaction_id:
-            return jsonify({
+            return jsonify(encrypt_msg({
                 'status': 'error',
                 'error_message': 'You must specify a transaction id'
-            })
+            }, session_key))
 
         if operation == 'commit_transaction':
             try:
                 commit_transaction(transaction_id)
-                return jsonify({
+                return jsonify(encrypt_msg({
                     'status': 'success'
-                })
+                }, session_key))
             except Exception as e:
                 return jsonify({
                     'status': 'error',
@@ -149,19 +158,19 @@ def api():
         elif operation == 'cancel_transaction':
             try:
                 cancel_transaction(transaction_id)
-                return jsonify({
+                return jsonify(encrypt_msg({
                     'status': 'success'
-                })
+                }, session_key))
             except Exception as e:
-                return jsonify({
+                return jsonify(encrypt_msg({
                     'status': 'error',
                     'error_message': e
-                })
+                }, session_key))
         else:
-            return jsonify({
+            return jsonify(encrypt_msg({
                 'status': 'error',
                 'error_message': 'The only operations allowed with the PUT method are (commit_transaction/cancel_transaction), you specified: {0}'.format(operation)
-            })
+            }, session_key))
 
 if __name__ == "__main__":
     app.run(port=port_num)
