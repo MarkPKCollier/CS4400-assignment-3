@@ -7,9 +7,11 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port_num', type=int)
+parser.add_argument('--replication_service_addr', type=str)
 args = parser.parse_args()
 
 port_num = args.port_num
+replication_service_addr = args.replication_service_addr
 
 from flask import g
 import os
@@ -56,19 +58,64 @@ def read_(file_id):
     res = cur.fetchone()
     return res[0] if res else res
 
-def write_(file_id, bytes, transaction_id):
+def get_file_servers(file_id, replication_service_key, encrytped_replication_service_key):
+    msg = encrypt_msg({
+        'file_id': file_id,
+        'operation', 'get all servers with copies'
+    }, replication_service_key)
+    msg['encrypted_session_key'] = encrytped_replication_service_key
+
+    r = requests.get(replication_service_addr, params=msg)
+
+    res = decrypt_msg(r.json(), replication_service_key)
+
+    if res.get('status') == 'success':
+        return res.get('servers')
+    else:
+        return None
+
+def broadcast_updated_file(file_id, bytes,
+    session_key, encrypted_session_key,
+    replication_service_session_key, encrypted_replication_service_session_key):
+    
+    servers_with_file_copies = get_file_servers(file_id, replication_service_session_key, encrypted_replication_service_session_key)
+
+    for server in servers_with_file_copies:
+        msg = encrypt_msg({
+            'operation', 'store',
+            'file_id': file_id,
+            'bytes': bytes,
+            'transaction_id': None,
+            'replication_service_session_key': replication_service_session_key,
+            'encrypted_replication_service_session_key': encrypted_replication_service_session_key
+            'is_broadcast': True
+
+        }, session_key)
+        msg['encrypted_session_key'] = encrypted_session_key
+
+        r = requests.post(server, data=msg)
+
+def write_(file_id, bytes, transaction_id,
+    session_key, encrypted_session_key,
+    replication_service_session_key, encrypted_replication_service_session_key, broadcast=False):
     if transaction_id:
         g.db.execute('replace into files (file_id, file) values (?, ?)', (file_id, bytes))
         g.db.commit()
+        if broadcast:
+            broadcast_updated_file(file_id, bytes, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
     else:
         g.db.execute('replace into files (file_id, shadow_file) values (?, ?)', (file_id, bytes))
         g.db.commit()
 
-def commit_transaction(transaction_id):
+def commit_transaction(transaction_id,
+    session_key, encrypted_session_key,
+    replication_service_session_key, encrypted_replication_service_session_key):
     cur = g.db.execute('select (file_id, shadow_file) from files where transaction_id = (?)', (transaction_id))
     for file_id, shadow_file in cur.fetchall():
         g.db.execute('replace into files (file_id, file, shadow_file, transaction_id) values (?, ?)', (file_id, shadow_file, None, None))
         g.db.commit()
+
+        broadcast_updated_file(file_id, shadow_file, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
 
 def cancel_transaction(transaction_id):
     g.db.execute('replace into files (transaction_id, shadow_file) values (?, ?) where transaction_id = (?)', (None, None, transaction_id))
@@ -91,8 +138,18 @@ def api():
             bytes = params.get('bytes')
             transaction_id = params.get('transaction_id')
             if bytes:
+                replication_service_session_key = params.get('replication_service_session_key')
+                encrypted_replication_service_session_key = params.get('encrypted_replication_service_session_key')
+
+                if not replication_service_session_key or not encrypted_replication_service_session_key:
+                    return jsonify(encrypt_msg({
+                        'status': 'error',
+                        'error_message': 'You must specify a replication service session key'
+                    }, session_key))
+
                 try:
-                    write_(file_id, bytes, transaction_id)
+                    is_broadcast = params.get('is_broadcast')
+                    write_(file_id, bytes, transaction_id, session_key, params.get('encrypted_session_key'), replication_service_session_key, encrypted_replication_service_session_key, broadcast=(is_broadcast is None or not is_broadcast))
                     return jsonify(encrypt_msg({
                         'status': 'success'
                     }, session_key))
@@ -146,8 +203,17 @@ def api():
             }, session_key))
 
         if operation == 'commit_transaction':
+            replication_service_session_key = params.get('replication_service_session_key')
+            encrypted_replication_service_session_key = params.get('encrypted_replication_service_session_key')
+
+            if not replication_service_session_key or not encrypted_replication_service_session_key:
+                return jsonify(encrypt_msg({
+                    'status': 'error',
+                    'error_message': 'You must specify a replication service session key'
+                }, session_key))
+
             try:
-                commit_transaction(transaction_id)
+                commit_transaction(transaction_id, session_key, params.get('encrypted_session_key'), replication_service_session_key, encrypted_replication_service_session_key)
                 return jsonify(encrypt_msg({
                     'status': 'success'
                 }, session_key))

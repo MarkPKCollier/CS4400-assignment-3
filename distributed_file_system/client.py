@@ -83,11 +83,15 @@ class Client:
                 bytes = f.read()
             finally:
                 f.close()
+
+            replication_service_session_key, encrypted_replication_service_session_key = self.get_session_key('replication service')
             r = requests.post(server, data=self.sessions_mgr.encrypt_msg({
                 'operation', 'store',
                 'file_id': file_id,
                 'bytes': bytes,
-                'transaction_id': self.transaction_id
+                'transaction_id': self.transaction_id,
+                'replication_service_session_key': replication_service_session_key,
+                'encrypted_replication_service_session_key': encrypted_replication_service_session_key
             }, 'file server'))
             res = self.sessions_mgr.decrypt_msg(r.json(), 'file server')
             if res.get('status') == 'success':
@@ -152,13 +156,16 @@ class Client:
         file_server_session_key, encrypted_file_server_session_key = self.get_session_key('file server')
         lock_service_session_key, encrytped_lock_service_session_key = self.get_session_key('lock service')
 
+        replication_service_session_key, encrypted_replication_service_session_key = self.get_session_key('replication service')
         r = requests.post(self.transaction_service_ip, data=self.sessions_mgr.encrypt_msg({
             'operation': 'commit_transaction',
             'transaction_id': self.transaction_id,
             'file_server_session_key': file_server_session_key,
             'encrypted_file_server_session_key': encrypted_file_server_session_key,
             'lock_service_session_key': lock_service_session_key,
-            'encrypted_lock_service_session_key': encrytped_lock_service_session_key
+            'encrypted_lock_service_session_key': encrytped_lock_service_session_key,
+            'replication_service_session_key': replication_service_session_key,
+            'encrypted_replication_service_session_key': encrypted_replication_service_session_key
         }, 'transaction service'))
         res = self.sessions_mgr.decrypt_msg(r.json(), 'transaction service')
         if res.get('status') == 'error':
