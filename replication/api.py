@@ -6,9 +6,9 @@ from replication_lib import ReplicationLib
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--port_num', type=int)
-parser.add_argument('--num_copies_per_file', type=int)
-parser.add_argument('--file_server_addrs', nargs='+')
+parser.add_argument('--port_num', type=int, required=True)
+parser.add_argument('--num_copies_per_file', type=int, required=True)
+parser.add_argument('--file_server_addrs', nargs='+', required=True)
 args = parser.parse_args()
 
 port_num = args.port_num

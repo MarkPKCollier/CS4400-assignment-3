@@ -4,11 +4,11 @@ from flask import jsonify
 import base64
 from cryptography.fernet import Fernet
 from datetime import datetime, timedelta
-from security_lib import encrypt_str, decrypt_str, encrypt_msg, decrypt_msg
+from security_lib import encrypt_str, decrypt_str, encrypt_msg, decrypt_msg, password_to_key
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--port_num', type=int)
+parser.add_argument('--port_num', type=int, required=True)
 args = parser.parse_args()
 
 port_num = args.port_num
@@ -23,6 +23,8 @@ DEBUG = True
 SECRET_KEY = 'development key'
 USERNAME = 'admin'
 PASSWORD = 'default'
+
+ADMIN_PASSWORD = 'distributed systems'
 
 FS_SERVER_SECRET_KEY = 'file server key'
 LOCK_SERVICE_SECRET_KEY = 'lock service key'
@@ -71,35 +73,61 @@ def get_user_password(user_id):
         return None
 
 def gen_key():
-    return Fernet.generate_key()
+    fernet_key = Fernet.generate_key()
+    return fernet_key
 
-@app.route("/", methods=['GET'])
+@app.route("/", methods=['GET', 'POST'])
 def api():
-    user_id = request.args.get('user_id')
-    user_password = get_user_password(user_id)
-    if user_password is None:
-        return jsonify({
-            'status': 'error',
-            'error_message': 'We do not have a password for that user'
-        })
-
-    encrypted_server_name = request.args.get('server_name')
-    server_name = decrypt_str(encrypted_msg, user_password)
-
-    if server_name in token_maps:
-        new_session_key = gen_key()
-        timeout = datetime.now() + timedelta(hours=8)
-
-        return jsonify(encrypt_msg({
-            'fs_session_key': encrypt_str(new_session_key, token_maps[server_name]),
-            'session_key': new_session_key
-            'timeout': timeout
-        }, user_password))
+    if request.method == 'GET':
+        params = request.args
     else:
-        return jsonify(encrypt_msg({
-            'status': 'error',
-            'error_message': 'Busted you failed authentication - better luck next time'
-        }, user_password))
+        params = request.form
+
+    if request.method == 'GET':
+        user_id = params.get('user_id')
+        user_password = get_user_password(user_id)
+        if user_password is None:
+            return jsonify({
+                'status': 'error',
+                'error_message': 'We do not have a password for that user'
+            })
+
+        encrypted_server_name = params.get('server_name')
+        server_name = decrypt_str(encrypted_server_name, password_to_key(user_password))
+
+        if server_name in token_maps:
+            new_session_key = gen_key()
+            timeout = datetime.now() + timedelta(hours=8)
+
+            return jsonify(encrypt_msg({
+                'status': 'success',
+                'fs_session_key': encrypt_str(new_session_key, token_maps[server_name]),
+                'session_key': new_session_key,
+                'timeout': timeout
+            }, user_password))
+        else:
+            return jsonify(encrypt_msg({
+                'status': 'error',
+                'error_message': 'Busted you failed authentication - better luck next time'
+            }, user_password))
+    elif request.method == 'POST':
+        operation = params.get('operation')
+        if operation == 'create_user':
+            if params.get('admin_password') != ADMIN_PASSWORD:
+                return jsonify({
+                    'status': 'error',
+                    'error_message': 'You have provided administrative authentication'
+                })
+
+            password = params.get('password')
+            access_level = params.get('access_level')
+
+            cur = g.db.execute('insert into clients (password, access_level) values (?, ?)', (password, access_level))
+            g.db.commit()
+            return jsonify({
+                    'status': 'success',
+                    'user_id': cur.lastrowid
+                })
 
 if __name__ == "__main__":
     app.run(port=port_num)

@@ -6,8 +6,8 @@ from security_lib import encrypt_msg, get_session_key_decrypt_msg
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--port_num', type=int)
-parser.add_argument('--replication_service_addr', type=str)
+parser.add_argument('--port_num', type=int, required=True)
+parser.add_argument('--replication_service_addr', type=str, required=True)
 args = parser.parse_args()
 
 port_num = args.port_num

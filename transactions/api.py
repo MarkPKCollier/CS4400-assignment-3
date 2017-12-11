@@ -5,9 +5,9 @@ from security_lib import encrypt_msg, get_session_key_decrypt_msg
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--port_num', type=int)
-parser.add_argument('--file_server_ips', nargs='+')
-parser.add_argument('--lock_service_ip', type=str)
+parser.add_argument('--port_num', type=int, required=True)
+parser.add_argument('--file_server_ips', nargs='+', required=True)
+parser.add_argument('--lock_service_ip', type=str, required=True)
 args = parser.parse_args()
 
 port_num = args.port_num

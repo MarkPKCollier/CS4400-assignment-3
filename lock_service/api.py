@@ -1,3 +1,6 @@
+import sys
+sys.path.insert(0, '../security_service')
+
 from flask import Flask
 from flask import request
 from flask import jsonify
@@ -8,7 +11,7 @@ import json
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--port_num', type=int)
+parser.add_argument('--port_num', type=int, required=True)
 args = parser.parse_args()
 
 port_num = args.port_num
