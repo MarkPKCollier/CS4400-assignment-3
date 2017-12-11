@@ -1,25 +1,20 @@
 # CS4400-assignment-3
 
-Plan:
+I implement all 7 of the distributed file system modules. Each module is implemented as a RESTful service.
 
-- Specify client/server API
-- Implement locking service
-- Implement directory service
-- Implement security service
-- Implement replication service
-- Implement in memory client side caching
-- Implement a client side application that demonstrates usage of the file system
-- Implement transactions
+I provide a Python library which can be imported into any Python file and used with a similar API to the native Python I/O library.
 
-Distributed file system with:
+Additionally I develop a sample GUI which can be used to interact with the distributed file service.
 
-- Distributed Transparent File Access
-- Security Service
-- Directory Service
-- Replication
-- Caching
-- Transactions
-- Lock Service
+Below are links to the details of the 7 features I implement:
+
+- [Distributed Transparent File Access](#distributed-transparent-file-access)
+- [Security Service](#security-service)
+- [Directory Service](#directory-service)
+- [Replication](#replication)
+- [Caching](#caching)
+- [Transactions](#transactions)
+- [Lock Service](#lock-service)
 
 ## Implementation details
 
@@ -63,6 +58,10 @@ fetch(file_id, mode)
 store(file_id, bytes)
 
 ---
+
+### Distributed Transparent File Access
+
+Pass
 
 ### Security Service
 
