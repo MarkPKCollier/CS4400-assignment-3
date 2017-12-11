@@ -1,3 +1,6 @@
+import sys
+sys.path.insert(0, '../security_service')
+
 from flask import Flask
 from flask import request
 from flask import jsonify

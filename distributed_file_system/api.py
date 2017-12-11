@@ -1,15 +1,21 @@
+import sys
+sys.path.insert(0, '../security_service')
+
 from flask import Flask
 from flask import request
 from flask import jsonify
+import requests
 import json
-from security_lib import encrypt_msg, get_session_key_decrypt_msg
+from security_lib import encrypt_msg, decrypt_msg, get_session_key_decrypt_msg
 import argparse
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--host', type=str, required=True)
 parser.add_argument('--port_num', type=int, required=True)
 parser.add_argument('--replication_service_addr', type=str, required=True)
 args = parser.parse_args()
 
+host = args.host
 port_num = args.port_num
 replication_service_addr = args.replication_service_addr
 
@@ -69,7 +75,7 @@ def read_(file_id):
 def get_file_servers(file_id, replication_service_key, encrytped_replication_service_key):
     msg = encrypt_msg({
         'file_id': file_id,
-        'operation', 'get all servers with copies'
+        'operation': 'get all servers with copies'
     }, replication_service_key)
     msg['encrypted_session_key'] = encrytped_replication_service_key
 
@@ -78,7 +84,7 @@ def get_file_servers(file_id, replication_service_key, encrytped_replication_ser
     res = decrypt_msg(r.json(), replication_service_key)
 
     if res.get('status') == 'success':
-        return res.get('servers')
+        return eval(res.get('servers'))
     else:
         return None
 
@@ -88,14 +94,14 @@ def broadcast_updated_file(file_id, bytes, user_id,
     
     servers_with_file_copies = get_file_servers(file_id, replication_service_session_key, encrypted_replication_service_session_key)
 
-    for server in servers_with_file_copies:
+    for server in filter(lambda server: server != 'http://' + host + ':' + str(port_num), servers_with_file_copies):
         msg = encrypt_msg({
-            'operation', 'store',
+            'operation': 'store',
             'file_id': file_id,
             'bytes': bytes,
             'transaction_id': None,
             'replication_service_session_key': replication_service_session_key,
-            'encrypted_replication_service_session_key': encrypted_replication_service_session_key
+            'encrypted_replication_service_session_key': encrypted_replication_service_session_key,
             'is_broadcast': True,
             'user_id': user_id
         }, session_key)
@@ -107,7 +113,7 @@ def write_(file_id, bytes, transaction_id, user_id,
     session_key, encrypted_session_key,
     replication_service_session_key, encrypted_replication_service_session_key, broadcast=False):
     if transaction_id is None:
-        g.db.execute('replace into files (file_id, file, last_update_user_id) values (?, ?)', (file_id, bytes, user_id))
+        g.db.execute('replace into files (file_id, file, last_update_user_id) values (?, ?, ?)', (file_id, bytes, user_id))
         g.db.commit()
         if broadcast:
             broadcast_updated_file(file_id, bytes, user_id, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
@@ -120,7 +126,7 @@ def commit_transaction(transaction_id, user_id,
     replication_service_session_key, encrypted_replication_service_session_key):
     cur = g.db.execute('select (file_id, shadow_file) from files where transaction_id = (?)', (transaction_id))
     for file_id, shadow_file in cur.fetchall():
-        g.db.execute('replace into files (file_id, file, shadow_file, transaction_id) values (?, ?)', (file_id, shadow_file, None, None))
+        g.db.execute('replace into files (file_id, file, shadow_file, transaction_id) values (?, ?, ?, ?)', (file_id, shadow_file, None, None))
         g.db.commit()
 
         broadcast_updated_file(file_id, shadow_file, user_id, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
@@ -257,5 +263,5 @@ def api():
             }, session_key))
 
 if __name__ == "__main__":
-    app.run(port=port_num)
+    app.run(host=host, port=port_num)
 

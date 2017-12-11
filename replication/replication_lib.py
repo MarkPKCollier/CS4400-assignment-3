@@ -13,7 +13,7 @@ class ReplicationLib:
         reference_server_id, _ = self.get_reference_file_server(file_id)
 
         res = []
-        for shift in range(-(self.num_copies_per_file-1)/2, (self.num_copies_per_file-1)/2) + 1):
+        for shift in range(-(self.num_copies_per_file-1)/2, ((self.num_copies_per_file-1)/2) + 1):
             fs_id = (reference_server_id + shift) % len(self.file_server_addrs)
             res.append(self.file_server_addrs[fs_id])
         return res

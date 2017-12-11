@@ -20,8 +20,6 @@ r = requests.post(security_service_addr, data={
     })
 res = r.json()
 
-print 'lock service', res
-
 user_id = res.get('user_id')
 
 import sys
