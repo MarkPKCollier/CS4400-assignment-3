@@ -8,9 +8,11 @@ from security_lib import encrypt_str, decrypt_str, encrypt_msg, decrypt_msg, pas
 import argparse
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--host', type=str, required=True)
 parser.add_argument('--port_num', type=int, required=True)
 args = parser.parse_args()
 
+host = args.host
 port_num = args.port_num
 
 from flask import g
@@ -130,5 +132,5 @@ def api():
                 })
 
 if __name__ == "__main__":
-    app.run(port=port_num)
+    app.run(host=host, port=port_num)
 

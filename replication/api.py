@@ -9,11 +9,13 @@ from replication_lib import ReplicationLib
 import argparse
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--host', type=str, required=True)
 parser.add_argument('--port_num', type=int, required=True)
 parser.add_argument('--num_copies_per_file', type=int, required=True)
 parser.add_argument('--file_server_addrs', nargs='+', required=True)
 args = parser.parse_args()
 
+host = args.host
 port_num = args.port_num
 num_copies_per_file = args.num_copies_per_file
 file_server_addrs = args.file_server_addrs
@@ -46,5 +48,5 @@ def api():
             }, session_key))
 
 if __name__ == "__main__":
-    app.run(port=port_num)
+    app.run(host=host, port=port_num)
 

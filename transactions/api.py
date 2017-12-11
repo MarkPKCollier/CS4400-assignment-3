@@ -5,11 +5,13 @@ from security_lib import encrypt_msg, get_session_key_decrypt_msg
 import argparse
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--host', type=str, required=True)
 parser.add_argument('--port_num', type=int, required=True)
 parser.add_argument('--file_server_ips', nargs='+', required=True)
 parser.add_argument('--lock_service_ip', type=str, required=True)
 args = parser.parse_args()
 
+host = args.host
 port_num = args.port_num
 file_server_ips = args.file_server_ips
 lock_service_ip = args.lock_service_ip
@@ -154,5 +156,5 @@ def api():
             }, session_key))
 
 if __name__ == "__main__":
-    app.run(port=port_num)
+    app.run(host=host, port=port_num)
 
