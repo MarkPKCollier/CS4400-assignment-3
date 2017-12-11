@@ -65,7 +65,7 @@ Pass
 
 ### Security Service
 
-Implementation of the Kerberos protocol.
+I implement a 3 key authentication protocol.
 
 ### Directory Service
 
@@ -73,7 +73,13 @@ I use a flat file system - in effect offering a single directory. This is simila
 
 ### Replication
 
-File are replicated across different server nodes with consistency maintained by an implementation of the Gossip protocol.
+Files are replicated across different file server nodes with consistency maintained by distributing writes to nodes with replicas of the written file.
+
+The implemented replication service enables both load balancing and data parallelisation. The administrator chooses both how many file servers there are in the distributed system and how many replicas of each file there are.
+
+The administrator can increase the traffic capacity of the distributed file system by increasing the number of replicas for each file in the distributed file system and increasing the number of file servers in the system.
+
+The administrator can enable the space capacity of the system to grow by increasing the number of file servers in the system while holding the number of replicas of each file constant.
 
 ### Caching
 
