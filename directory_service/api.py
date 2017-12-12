@@ -1,3 +1,9 @@
+import os
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+security_service_dir = os.path.join(root_dir, 'security_service')
+import sys
+sys.path.insert(0, security_service_dir)
+
 from flask import Flask
 from flask import request
 from flask import jsonify

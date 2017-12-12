@@ -21,8 +21,11 @@ res = r.json()
 
 user_id = res.get('user_id')
 
+import os
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+security_service_dir = os.path.join(root_dir, 'security_service')
 import sys
-sys.path.insert(0, '../security_service')
+sys.path.insert(0, security_service_dir)
 from security_lib import SessionsManager
 
 session_mgr = SessionsManager(user_id, user_password, security_service_addr)

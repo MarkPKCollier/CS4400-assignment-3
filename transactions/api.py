@@ -1,19 +1,26 @@
+import os
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+security_service_dir = os.path.join(root_dir, 'security_service')
+import sys
+sys.path.insert(0, security_service_dir)
+
 from flask import Flask
 from flask import request
 from flask import jsonify
+import requests
 from security_lib import encrypt_msg, get_session_key_decrypt_msg
 import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--host', type=str, required=True)
 parser.add_argument('--port_num', type=int, required=True)
-parser.add_argument('--file_server_ips', nargs='+', required=True)
+parser.add_argument('--file_server_addrs', nargs='+', required=True)
 parser.add_argument('--lock_service_ip', type=str, required=True)
 args = parser.parse_args()
 
 host = args.host
 port_num = args.port_num
-file_server_ips = args.file_server_ips
+file_server_addrs = args.file_server_addrs
 lock_service_ip = args.lock_service_ip
 
 from flask import g
@@ -54,24 +61,27 @@ def teardown_request(exception):
         db.close()
 
 def get_new_transaction_id():
-    cur = g.db.execute('insert into transactions')
+    cur = g.db.execute('insert into transactions (id) values (null)')
     g.db.commit()
     return '_transaction_{0}'.format(cur.lastrowid)
 
 def broadcast_operation(operation, transaction_id,
         file_server_session_key, encrypted_file_server_session_key,
-        lock_service_session_key, encrypted_file_server_session_key):
+        lock_service_session_key, encrytped_lock_service_session_key,
+        replication_service_session_key=None, encrypted_replication_service_session_key=None):
     # broadcast first to file servers, when they have completed, then send to lock service
-    for ip in file_server_ips:
+    for ip in file_server_addrs:
         msg = encrypt_msg({
-            'operation', operation,
-            'transaction_id': transaction_id
+            'operation': operation,
+            'transaction_id': transaction_id,
+            'replication_service_session_key': replication_service_session_key,
+            'encrypted_replication_service_session_key': encrypted_replication_service_session_key
         }, file_server_session_key)
-        msg['encrypted_session_key'] = file_server_session_key
+        msg['encrypted_session_key'] = encrypted_file_server_session_key
         r = requests.put(ip, data=msg)
 
     msg = encrypt_msg({
-        'operation', operation,
+        'operation': operation,
         'transaction_id': transaction_id
     }, lock_service_session_key)
     msg['encrypted_session_key'] = encrytped_lock_service_session_key
@@ -80,14 +90,16 @@ def broadcast_operation(operation, transaction_id,
 
 def broadcast_commit(transaction_id,
         file_server_session_key, encrypted_file_server_session_key,
-        lock_service_session_key, encrypted_file_server_session_key):
+        lock_service_session_key, encrytped_lock_service_session_key,
+        replication_service_session_key, encrypted_replication_service_session_key):
     broadcast_operation('commit_transaction', transaction_id,
         file_server_session_key, encrypted_file_server_session_key,
-        lock_service_session_key, encrypted_file_server_session_key)
+        lock_service_session_key, encrypted_file_server_session_key,
+        replication_service_session_key, encrypted_replication_service_session_key)
 
 def broadcast_cancel(transaction_id,
         file_server_session_key, encrypted_file_server_session_key,
-        lock_service_session_key, encrypted_file_server_session_key):
+        lock_service_session_key, encrytped_lock_service_session_key):
     broadcast_operation('cancel_transaction', transaction_id,
         file_server_session_key, encrypted_file_server_session_key,
         lock_service_session_key, encrypted_file_server_session_key)
@@ -102,7 +114,7 @@ def api():
     file_server_session_key = params.get('file_server_session_key')
     encrypted_file_server_session_key = params.get('encrypted_file_server_session_key')
     lock_service_session_key = params.get('lock_service_session_key')
-    encrytped_lock_service_session_key = params.get('encrytped_lock_service_session_key')
+    encrypted_lock_service_session_key = params.get('encrypted_lock_service_session_key')
 
     if not operation:
         return jsonify(encrypt_msg({
@@ -114,7 +126,7 @@ def api():
             'status': 'error',
             'error_message': 'You must specify a file server session key'
         }, session_key))
-    if not lock_service_session_key or not encrytped_lock_service_session_key:
+    if not lock_service_session_key or not encrypted_lock_service_session_key:
         return jsonify(encrypt_msg({
             'status': 'error',
             'error_message': 'You must specify a lock service session key'
@@ -136,16 +148,26 @@ def api():
             }, session_key))
 
         if operation == 'commit_transaction':
+            replication_service_session_key = params.get('replication_service_session_key')
+            encrypted_replication_service_session_key = params.get('encrypted_replication_service_session_key')
+
+            if replication_service_session_key in [None, 'None'] or encrypted_replication_service_session_key in [None, 'None']:
+                return jsonify(encrypt_msg({
+                    'status': 'error',
+                    'error_message': 'You must specify a replication service session key if you wish to commit a transaction'
+                }, session_key))
+
             broadcast_commit(transaction_id,
                 file_server_session_key, encrypted_file_server_session_key,
-                lock_service_session_key, encrypted_file_server_session_key)
+                lock_service_session_key, encrypted_lock_service_session_key,
+                replication_service_session_key, encrypted_replication_service_session_key)
             return jsonify(encrypt_msg({
                 'status': 'success'
             }, session_key))
         elif operation == 'cancel_transaction':
             broadcast_cancel(transaction_id,
                 file_server_session_key, encrypted_file_server_session_key,
-                lock_service_session_key, encrypted_file_server_session_key)
+                lock_service_session_key, encrypted_lock_service_session_key)
             return jsonify(encrypt_msg({
                 'status': 'success'
             }, session_key))

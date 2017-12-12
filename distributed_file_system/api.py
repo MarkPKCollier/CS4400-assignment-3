@@ -1,5 +1,8 @@
+import os
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+security_service_dir = os.path.join(root_dir, 'security_service')
 import sys
-sys.path.insert(0, '../security_service')
+sys.path.insert(0, security_service_dir)
 
 from flask import Flask
 from flask import request
@@ -57,7 +60,9 @@ def teardown_request(exception):
         db.close()
 
 def does_file_exist(file_id):
-    return read_(file_id)
+    cur = g.db.execute('select file from files where file_id = (?)', (file_id, ))
+    res = cur.fetchone()
+    return res is not None
 
 def is_stale_copy(file_id, user_id):
     cur = g.db.execute('select last_update_user_id from files where file_id = (?)', (file_id, ))
@@ -91,7 +96,6 @@ def get_file_servers(file_id, replication_service_key, encrytped_replication_ser
 def broadcast_updated_file(file_id, bytes, user_id,
     session_key, encrypted_session_key,
     replication_service_session_key, encrypted_replication_service_session_key):
-    
     servers_with_file_copies = get_file_servers(file_id, replication_service_session_key, encrypted_replication_service_session_key)
 
     for server in filter(lambda server: server != 'http://' + host + ':' + str(port_num), servers_with_file_copies):
@@ -109,30 +113,40 @@ def broadcast_updated_file(file_id, bytes, user_id,
 
         r = requests.post(server, data=msg)
 
-def write_(file_id, bytes, transaction_id, user_id,
+def write_(file_id, bytes, user_id, transaction_id,
     session_key, encrypted_session_key,
     replication_service_session_key, encrypted_replication_service_session_key, broadcast=False):
     if transaction_id is None:
-        g.db.execute('replace into files (file_id, file, last_update_user_id) values (?, ?, ?)', (file_id, bytes, user_id))
+        # g.db.execute('replace into files (file_id, file, last_update_user_id) values (?, ?, ?)', (file_id, bytes, user_id))
+        if not does_file_exist(file_id):
+            g.db.execute('insert into files (file_id, file, last_update_user_id) values (?, ?, ?)', (file_id, bytes, user_id))
+        else:
+            g.db.execute('update files set file=(?), last_update_user_id=(?) where file_id=(?)', (bytes, user_id, file_id))
         g.db.commit()
         if broadcast:
             broadcast_updated_file(file_id, bytes, user_id, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
     else:
-        g.db.execute('replace into files (file_id, shadow_file) values (?, ?)', (file_id, bytes))
+        g.db.execute('update files set shadow_file=(?), transaction_id=(?) where file_id=(?)', (bytes, transaction_id, file_id))
+        # g.db.execute('replace into files (file_id, shadow_file) values (?, ?)', (file_id, bytes))
         g.db.commit()
 
 def commit_transaction(transaction_id, user_id,
     session_key, encrypted_session_key,
     replication_service_session_key, encrypted_replication_service_session_key):
-    cur = g.db.execute('select (file_id, shadow_file) from files where transaction_id = (?)', (transaction_id))
-    for file_id, shadow_file in cur.fetchall():
-        g.db.execute('replace into files (file_id, file, shadow_file, transaction_id) values (?, ?, ?, ?)', (file_id, shadow_file, None, None))
-        g.db.commit()
+    cur = g.db.execute('select * from files')
+    cur = g.db.execute('select file_id, shadow_file from files where transaction_id IS (?)', (transaction_id, ))
+    res = cur.fetchall()
+    
+    for file_id, shadow_file in res:
+        g.db.execute('replace into files (file_id, file, last_update_user_id, shadow_file, transaction_id) values (?, ?, ?, ?, ?)', (file_id, shadow_file, user_id, None, None))
 
         broadcast_updated_file(file_id, shadow_file, user_id, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
 
+    g.db.commit()
+
 def cancel_transaction(transaction_id):
-    g.db.execute('replace into files (transaction_id, shadow_file) values (?, ?) where transaction_id = (?)', (None, None, transaction_id))
+    g.db.execute('update files set transaction_id=(?), shadow_file=(?) where transaction_id = (?)', (None, None, transaction_id))
+    # g.db.execute('replace into files (transaction_id, shadow_file) values (?, ?) where transaction_id = (?)', (None, None, transaction_id))
     g.db.commit()
 
 @app.route("/", methods=['GET', 'POST', 'PUT'])
@@ -190,7 +204,6 @@ def api():
                     'status': 'error',
                     'error_message': 'File ID: {0} does not exist'.format(file_id)
                 }, session_key))
-
             else:
                 try:
                     res = read_(file_id)
@@ -228,7 +241,7 @@ def api():
             replication_service_session_key = params.get('replication_service_session_key')
             encrypted_replication_service_session_key = params.get('encrypted_replication_service_session_key')
 
-            if not replication_service_session_key or not encrypted_replication_service_session_key:
+            if (replication_service_session_key in [None, 'None']) or (encrypted_replication_service_session_key in [None, 'None']):
                 return jsonify(encrypt_msg({
                     'status': 'error',
                     'error_message': 'You must specify a replication service session key'
