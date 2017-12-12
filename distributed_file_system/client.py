@@ -41,8 +41,8 @@ class Client:
             # if necessary request a lock from the locking service
             if lock:
                 r = requests.post(self.locking_service_addr, data=self.sessions_mgr.encrypt_msg({
-                    'operation': encrypt_str('lock', SERVER_SECRET_KEY),
-                    'file_id': encrypt_str(file_id, SERVER_SECRET_KEY)
+                    'operation': 'lock',
+                    'file_id': file_id
                 }, 'lock service'))
                 res = self.sessions_mgr.decrypt_msg(r.json(), 'lock service')
                 if res.get('status') == 'success':
@@ -58,7 +58,8 @@ class Client:
         return server, file_id
 
     def open(self, file_name, mode):
-        server, file_id = self.get_file_server_details(file_name, lock=mode == 'write')
+        assert mode in ['r', 'w']
+        server, file_id = self.get_file_server_details(file_name, lock=mode == 'w')
 
         if is_stale_file(server, file_id, self.user_id, self.sessions_mgr):
             r = requests.get(server, params=self.sessions_mgr.encrypt_msg({

@@ -62,18 +62,15 @@ look_pool_size = 50
 lock_pool = {i: threading.RLock() for i in range(look_pool_size)}
 
 def lock(file_id):
-    while True:
+    for _ in range(20):
         db_lock_id = hash(file_id) % look_pool_size
         db_lock = lock_pool[db_lock_id]
         db_lock.acquire()
         try:
             cur = g.db.execute('select locked, transaction_id from locks where file_id = (?)', (file_id, ))
             res = cur.fetchone()
-            if res:
-                if res[0] == 0 and res[1] is None:
-                    return True
-            else:
-                g.db.execute('insert into locks (file_id, locked) values (?, ?)', (file_id, 1))
+            if res is None or (res[0] == 0 and res[1] is None):
+                g.db.execute('replace into locks (file_id, locked) values (?, ?)', (file_id, 1))
                 g.db.commit()
                 return True
         finally:

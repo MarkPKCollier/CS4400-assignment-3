@@ -120,7 +120,32 @@ def test3():
 
     assert res == (f + f_plus)
 
+def test4():
+    # client1 and client2 attempt to simultaniously write to a file, client 2 can't lock the file and a timeout exception is raised
+    fname = 'test1.txt'
+    f = 'test3 file contents'
+    f_ = 'test3 tests locking'
 
+    client1.open(fname, 'w')
+    client1.write(fname, f)
+
+    exception = False
+    try:
+        client2.open(fname, 'w')
+        client2.write(fname, f_)
+        client2.close(fname)
+    except:
+        exception = True
+
+    assert exception
+    
+    client1.close(fname)
+
+    client1.open(fname, 'r')
+    res = client1.read(fname)
+    client1.close(fname)
+
+    assert res == f
 
 
 test1()
@@ -131,6 +156,9 @@ print 'Passed test 2'
 
 test3()
 print 'Passed test 3'
+
+test4()
+print 'Passed test 4'
 
 
 
