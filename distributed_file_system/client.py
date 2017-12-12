@@ -1,41 +1,46 @@
+import os
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+security_service_dir = os.path.join(root_dir, 'security_service')
+caching_dir = os.path.join(root_dir, 'caching')
+import sys
+sys.path.insert(0, security_service_dir)
+sys.path.insert(0, caching_dir)
+
 import requests
 from security_lib import encrypt_str, decrypt_str, encrypt_msg, decrypt_msg, SessionsManager
 from client_side_caching_lib import is_stale_file
 from datetime import datetime
 
 class Client:
-    def __init__(self, user_id, password, directory_service_ip, locking_service_ip, security_service_ip, transaction_service_ip):
+    def __init__(self, user_id, password, directory_service_addr, locking_service_addr, security_service_addr, transaction_service_addr):
         self.user_id = user_id
         self.password = password
-        self.directory_service_ip = directory_service_ip
-        self.locking_service_ip = locking_service_ip
-        self.security_service_ip = security_service_ip
-        self.transaction_service_ip = transaction_service_ip
+        self.directory_service_addr = directory_service_addr
+        self.locking_service_addr = locking_service_addr
+        self.security_service_addr = security_service_addr
+        self.transaction_service_addr = transaction_service_addr
         self.file_modes = {}
         self.file_positions = {}
         self.file_name_to_server_id = {}
         self.transaction_id = None
-        self.sessions_mgr = SessionsManager(user_id, password, security_service_ip)
+        self.sessions_mgr = SessionsManager(user_id, password, security_service_addr)
 
     def get_file_server_details(self, file_name, lock=False):
         # get server, file_id from the directory service
-        replication_service_session_key, encrypted_replication_service_session_key = self.get_session_key('replication service')
+        replication_service_session_key, encrypted_replication_service_session_key = self.sessions_mgr.get_session_key('replication service')
 
-        r = requests.get(self.directory_service_ip, params={
+        r = requests.get(self.directory_service_addr, params=self.sessions_mgr.encrypt_msg({
             'file_name': file_name,
-            'replication_service_session_key': replication_service_session_key,
-            'encrypted_replication_service_session_key': encrypted_replication_service_session_key
-        })
+            'replication_service_key': replication_service_session_key,
+            'encrytped_replication_service_key': encrypted_replication_service_session_key
+        }, 'directory service'))
         res = self.sessions_mgr.decrypt_msg(r.json(), 'directory service')
         if res.get('status') == 'success':
             server, file_id = res['server'], res['file_id']
 
-            # request access from the security service
-            # pass
-
             # if necessary request a lock from the locking service
             if lock:
-                r = requests.post(self.locking_service_ip, data=self.sessions_mgr.encrypt_msg({
+                r = requests.post(self.locking_service_addr, data=self.sessions_mgr.encrypt_msg({
                     'operation': encrypt_str('lock', SERVER_SECRET_KEY),
                     'file_id': encrypt_str(file_id, SERVER_SECRET_KEY)
                 }, 'lock service'))
@@ -47,10 +52,8 @@ class Client:
             else:
                 return server, file_id
 
-
         else:
             raise Exception(res.get('error_message'))
-
 
         return server, file_id
 
@@ -58,8 +61,8 @@ class Client:
         server, file_id = self.get_file_server_details(file_name, lock=mode == 'write')
 
         if is_stale_file(server, file_id, self.user_id, self.sessions_mgr):
-            r = requests.get(server, data=self.sessions_mgr.encrypt_msg({
-                'operation', 'fetch',
+            r = requests.get(server, params=self.sessions_mgr.encrypt_msg({
+                'operation': 'fetch',
                 'file_id': file_id,
                 'mode': mode,
                 'transaction_id': self.transaction_id
@@ -74,13 +77,17 @@ class Client:
                 finally:
                     f.close()
                 return file_name
+            elif 'does not exist' in res.get('error_message'):
+                self.file_modes[file_name] = mode
+                self.file_positions[file_name] = 0
+                return file_name
             else:
                 raise Exception(res.get('error_message'))
         else:
             return file_name
 
     def close(self, file_name):
-        if self.file_modes[file_name] == 'write':
+        if self.file_modes[file_name] == 'w':
             server, file_id = self.get_file_server_details(file_name)
             f = open(file_name.replace('/', '_'), 'rb')
             try:
@@ -88,9 +95,9 @@ class Client:
             finally:
                 f.close()
 
-            replication_service_session_key, encrypted_replication_service_session_key = self.get_session_key('replication service')
+            replication_service_session_key, encrypted_replication_service_session_key = self.sessions_mgr.get_session_key('replication service')
             r = requests.post(server, data=self.sessions_mgr.encrypt_msg({
-                'operation', 'store',
+                'operation': 'store',
                 'file_id': file_id,
                 'bytes': bytes,
                 'transaction_id': self.transaction_id,
@@ -100,8 +107,8 @@ class Client:
             }, 'file server'))
             res = self.sessions_mgr.decrypt_msg(r.json(), 'file server')
             if res.get('status') == 'success':
-                r = requests.post(self.locking_service_ip, data=self.sessions_mgr.encrypt_msg({
-                    'operation', 'unlock',
+                r = requests.post(self.locking_service_addr, data=self.sessions_mgr.encrypt_msg({
+                    'operation': 'unlock',
                     'file_id': file_id,
                     'transaction_id': self.transaction_id
                 }, 'lock service'))
@@ -140,10 +147,10 @@ class Client:
         if not self.transaction_id is None:
             raise Exception('An existing transaction exitsts, close it first before starting a new one')
 
-        file_server_session_key, encrypted_file_server_session_key = self.get_session_key('file server')
-        lock_service_session_key, encrytped_lock_service_session_key = self.get_session_key('lock service')
+        file_server_session_key, encrypted_file_server_session_key = self.sessions_mgr.get_session_key('file server')
+        lock_service_session_key, encrytped_lock_service_session_key = self.sessions_mgr.get_session_key('lock service')
 
-        r = requests.post(self.transaction_service_ip, data=self.sessions_mgr.encrypt_msg({
+        r = requests.post(self.transaction_service_addr, data=self.sessions_mgr.encrypt_msg({
             'operation': 'start_transaction',
             'file_server_session_key': file_server_session_key,
             'encrypted_file_server_session_key': encrypted_file_server_session_key,
@@ -158,11 +165,11 @@ class Client:
             raise Exception(res.get('error_message'))
 
     def commit_transaction(self):
-        file_server_session_key, encrypted_file_server_session_key = self.get_session_key('file server')
-        lock_service_session_key, encrytped_lock_service_session_key = self.get_session_key('lock service')
+        file_server_session_key, encrypted_file_server_session_key = self.sessions_mgr.get_session_key('file server')
+        lock_service_session_key, encrytped_lock_service_session_key = self.sessions_mgr.get_session_key('lock service')
 
-        replication_service_session_key, encrypted_replication_service_session_key = self.get_session_key('replication service')
-        r = requests.post(self.transaction_service_ip, data=self.sessions_mgr.encrypt_msg({
+        replication_service_session_key, encrypted_replication_service_session_key = self.sessions_mgr.get_session_key('replication service')
+        r = requests.post(self.transaction_service_addr, data=self.sessions_mgr.encrypt_msg({
             'operation': 'commit_transaction',
             'transaction_id': self.transaction_id,
             'file_server_session_key': file_server_session_key,
@@ -179,10 +186,10 @@ class Client:
         self.transaction_id = None
 
     def cancel_transaction(self):
-        file_server_session_key, encrypted_file_server_session_key = self.get_session_key('file server')
-        lock_service_session_key, encrytped_lock_service_session_key = self.get_session_key('lock service')
+        file_server_session_key, encrypted_file_server_session_key = self.sessions_mgr.get_session_key('file server')
+        lock_service_session_key, encrytped_lock_service_session_key = self.sessions_mgr.get_session_key('lock service')
 
-        r = requests.post(self.transaction_service_ip, data=self.sessions_mgr.encrypt_msg({
+        r = requests.post(self.transaction_service_addr, data=self.sessions_mgr.encrypt_msg({
             'operation': 'cancel_transaction',
             'transaction_id': self.transaction_id,
             'file_server_session_key': file_server_session_key,

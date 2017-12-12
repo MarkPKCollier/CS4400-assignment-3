@@ -5,8 +5,8 @@ import requests
 # nonetheless here I provide methods to aid in client side caching
 
 def is_stale_file(file_server_addr, file_id, user_id, sessions_mgr):
-    r = requests.get(file_server_addr, data=sessions_mgr.encrypt_msg({
-            'operation', 'poll',
+    r = requests.get(file_server_addr, params=sessions_mgr.encrypt_msg({
+            'operation': 'poll',
             'file_id': file_id,
             'user_id': user_id
             }, 'file server'))

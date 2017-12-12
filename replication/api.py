@@ -49,6 +49,11 @@ def api():
             'status': 'success',
             'server': file_server
             }, session_key))
+    else:
+        return jsonify(encrypt_msg({
+            'status': 'error',
+            'error_message': 'Illegal operation: {0}'.format(operation)
+            }, session_key))
 
 if __name__ == "__main__":
     app.run(host=host, port=port_num)

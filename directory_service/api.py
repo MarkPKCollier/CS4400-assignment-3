@@ -7,6 +7,7 @@ sys.path.insert(0, security_service_dir)
 from flask import Flask
 from flask import request
 from flask import jsonify
+import requests
 from security_lib import encrypt_msg, decrypt_msg, get_session_key_decrypt_msg
 import argparse
 
@@ -27,7 +28,7 @@ app = Flask(__name__)
 def get_file_server(file_id, replication_service_key, encrytped_replication_service_key):
     msg = encrypt_msg({
         'file_id': file_id,
-        'operation', 'get_server',
+        'operation': 'get server',
         'fs_session_key': replication_service_key
     }, replication_service_key)
     msg['encrypted_session_key'] = encrytped_replication_service_key
@@ -56,7 +57,7 @@ def api():
             'error_message': 'You must specify a file_name'
         }, session_key))
 
-    if not replication_service_key or not encrytped_replication_service_key:
+    if replication_service_key in [None, 'None'] or encrytped_replication_service_key in [None, 'None']:
         return jsonify(encrypt_msg({
             'status': 'error',
             'error_message': 'You must specify a replication service key'
@@ -64,7 +65,7 @@ def api():
 
     file_id = file_name.replace('/', '_')
 
-    server = get_file_server(file_id)
+    server = get_file_server(file_id, replication_service_key, encrytped_replication_service_key)
     if server:
         return jsonify(encrypt_msg({
             'status': 'success',
