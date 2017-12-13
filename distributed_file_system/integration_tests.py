@@ -176,10 +176,9 @@ def test5():
             assert res == f
         finally:
             client2.close(fname)
-
-        client1.commit_transaction()
     finally:
         client1.close(fname)
+    client1.commit_transaction()
 
     client2.open(fname, 'r')
     try:
@@ -188,6 +187,111 @@ def test5():
         assert res == f_
     finally:
         client2.close(fname)
+
+def test6():
+    # like test5 only client commits transaction before closing file
+    fname = 'test5.txt'
+    f = 'test5 file contents'
+    f_ = 'test5 tests commiting transactions'
+
+    client1.open(fname, 'w')
+    try:
+        client1.write(fname, f)
+    finally:
+        client1.close(fname)
+
+    tid = client1.start_transaction()
+    client1.open(fname, 'w')
+    try:
+        client1.write(fname, f_)
+
+        client2.open(fname, 'r')
+        try:
+            res = client2.read(fname)
+
+            assert res == f
+            try:
+                client1.commit_transaction()
+            except:
+                exception = True
+
+            assert exception
+        finally:
+            client2.close(fname)
+    finally:
+        client1.close(fname)
+        client1.commit_transaction()
+
+def test7():
+    # client1 starts a transaction and write to a file, client2 reads the file while the transaction is ongoing, client1 cancels, client2 reads
+    fname = 'test7.txt'
+    f = 'test7 file contents'
+    f_ = 'test7 tests cancelling transactions'
+
+    client1.open(fname, 'w')
+    try:
+        client1.write(fname, f)
+    finally:
+        client1.close(fname)
+
+    tid = client1.start_transaction()
+    client1.open(fname, 'w')
+    try:
+        client1.write(fname, f_)
+
+        client2.open(fname, 'r')
+        try:
+            res = client2.read(fname)
+
+            assert res == f
+        finally:
+            client2.close(fname)
+    finally:
+        client1.close(fname)
+    client1.cancel_transaction()
+
+    client2.open(fname, 'r')
+    try:
+        res = client2.read(fname)
+
+        assert res == f
+    finally:
+        client2.close(fname)
+
+def test8():
+    # like test7 only client cancels transaction before closing file
+    fname = 'test8.txt'
+    f = 'test8 file contents'
+    f_ = 'test8 tests cancelling transactions'
+
+    client1.open(fname, 'w')
+    try:
+        client1.write(fname, f)
+    finally:
+        client1.close(fname)
+
+    tid = client1.start_transaction()
+    client1.open(fname, 'w')
+    try:
+        client1.write(fname, f_)
+
+        client2.open(fname, 'r')
+        try:
+            res = client2.read(fname)
+
+            assert res == f
+        finally:
+            client2.close(fname)
+
+        try:
+            client1.cancel_transaction()
+        except:
+            exception = True
+
+        assert exception
+    finally:
+        client1.close(fname)
+        client1.cancel_transaction()
 
 
 test1()
@@ -204,6 +308,15 @@ print 'Passed test 4'
 
 test5()
 print 'Passed test 5'
+
+test6()
+print 'Passed test 6'
+
+test7()
+print 'Passed test 7'
+
+test8()
+print 'Passed test 8'
 
 
 

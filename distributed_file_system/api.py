@@ -60,8 +60,6 @@ def teardown_request(exception):
         db.close()
 
 def does_file_exist(file_id):
-    cur = g.db.execute('select * from files')
-
     cur = g.db.execute('select file from files where file_id = (?)', (file_id, ))
     res = cur.fetchone()
 
@@ -131,18 +129,13 @@ def write_(file_id, bytes, user_id, transaction_id,
         if broadcast:
             broadcast_updated_file(file_id, bytes, user_id, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
     else:
-        cur = g.db.execute('select * from files')
-
         g.db.execute('update files set shadow_file=(?), transaction_id=(?) where file_id=(?)', (bytes, transaction_id, file_id))
         # g.db.execute('replace into files (file_id, shadow_file) values (?, ?)', (file_id, bytes))
         g.db.commit()
 
-        cur = g.db.execute('select * from files')
-
 def commit_transaction(transaction_id, user_id,
     session_key, encrypted_session_key,
     replication_service_session_key, encrypted_replication_service_session_key):
-    cur = g.db.execute('select * from files')
     cur = g.db.execute('select file_id, shadow_file from files where transaction_id IS (?)', (transaction_id, ))
     res = cur.fetchall()
     

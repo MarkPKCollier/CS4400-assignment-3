@@ -20,6 +20,7 @@ class Client:
         self.security_service_addr = security_service_addr
         self.transaction_service_addr = transaction_service_addr
         self.file_modes = {}
+        self.file_transactions = {}
         self.file_positions = {}
         self.file_name_to_server_id = {}
         self.transaction_id = None
@@ -71,6 +72,7 @@ class Client:
             res = self.sessions_mgr.decrypt_msg(r.json(), 'file server')
             if res.get('status') == 'success':
                 self.file_modes[file_name] = mode
+                self.file_transactions[file_name] = self.transaction_id
                 self.file_positions[file_name] = 0
                 f = open(str(self.user_id) + '_' + file_name.replace('/', '_'), 'wb')
                 try:
@@ -88,7 +90,8 @@ class Client:
             return file_name
 
     def close(self, file_name):
-        if self.file_modes[file_name] == 'w':
+        if self.file_modes[file_name] == 'w' and self.file_transactions.get(file_name) in [None, self.transaction_id]:
+            self.file_modes[file_name] = None
             server, file_id = self.get_file_server_details(file_name)
             f = open(str(self.user_id) + '_' + file_name.replace('/', '_'), 'rb')
             try:
@@ -166,6 +169,9 @@ class Client:
             raise Exception(res.get('error_message'))
 
     def commit_transaction(self):
+        if any(map(lambda m: m == 'w', self.file_modes.values())):
+            raise Exception('You have files open for writing, close them before commiting a transaction')
+
         file_server_session_key, encrypted_file_server_session_key = self.sessions_mgr.get_session_key('file server')
         lock_service_session_key, encrytped_lock_service_session_key = self.sessions_mgr.get_session_key('lock service')
 
@@ -187,6 +193,9 @@ class Client:
         self.transaction_id = None
 
     def cancel_transaction(self):
+        if any(map(lambda m: m == 'w', self.file_modes.values())):
+            raise Exception('You have files open for writing, close them before cancelling a transaction')
+
         file_server_session_key, encrypted_file_server_session_key = self.sessions_mgr.get_session_key('file server')
         lock_service_session_key, encrytped_lock_service_session_key = self.sessions_mgr.get_session_key('lock service')
 
