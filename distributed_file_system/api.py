@@ -60,8 +60,11 @@ def teardown_request(exception):
         db.close()
 
 def does_file_exist(file_id):
+    cur = g.db.execute('select * from files')
+
     cur = g.db.execute('select file from files where file_id = (?)', (file_id, ))
     res = cur.fetchone()
+
     return res is not None
 
 def is_stale_copy(file_id, user_id):
@@ -116,19 +119,25 @@ def broadcast_updated_file(file_id, bytes, user_id,
 def write_(file_id, bytes, user_id, transaction_id,
     session_key, encrypted_session_key,
     replication_service_session_key, encrypted_replication_service_session_key, broadcast=False):
-    if transaction_id is None:
+    if transaction_id in [None, 'None']:
         # g.db.execute('replace into files (file_id, file, last_update_user_id) values (?, ?, ?)', (file_id, bytes, user_id))
         if not does_file_exist(file_id):
             g.db.execute('insert into files (file_id, file, last_update_user_id) values (?, ?, ?)', (file_id, bytes, user_id))
         else:
             g.db.execute('update files set file=(?), last_update_user_id=(?) where file_id=(?)', (bytes, user_id, file_id))
         g.db.commit()
+
+        cur = g.db.execute('select * from files')
         if broadcast:
             broadcast_updated_file(file_id, bytes, user_id, session_key, encrypted_session_key, replication_service_session_key, encrypted_replication_service_session_key)
     else:
+        cur = g.db.execute('select * from files')
+
         g.db.execute('update files set shadow_file=(?), transaction_id=(?) where file_id=(?)', (bytes, transaction_id, file_id))
         # g.db.execute('replace into files (file_id, shadow_file) values (?, ?)', (file_id, bytes))
         g.db.commit()
+
+        cur = g.db.execute('select * from files')
 
 def commit_transaction(transaction_id, user_id,
     session_key, encrypted_session_key,

@@ -32,6 +32,10 @@ user_id_1 = create_user(password_1)
 user_id_2 = create_user(password_2)
 user_id_3 = create_user(password_3)
 
+print 'Created user', user_id_1
+print 'Created user', user_id_2
+print 'Created user', user_id_3
+
 client1 = Client(user_id_1, password_1, directory_service_addr, locking_service_addr, security_service_addr, transaction_service_addr)
 client2 = Client(user_id_2, password_2, directory_service_addr, locking_service_addr, security_service_addr, transaction_service_addr)
 client3 = Client(user_id_3, password_3, directory_service_addr, locking_service_addr, security_service_addr, transaction_service_addr)
@@ -71,7 +75,7 @@ def test1():
 
 def test2():
     # client1 opens a file, write to it and read back contents, client 2 reads contents
-    fname = 'test1.txt'
+    fname = 'test2.txt'
     f = 'test2 file contents'
 
     client1.open(fname, 'w')
@@ -95,7 +99,7 @@ def test2():
 
 def test3():
     # client1 and client2 write to a file and client3 checks it sees the results
-    fname = 'test1.txt'
+    fname = 'test3.txt'
     f = 'test3 file contents'
     f_plus = 'test3 tests appending'
 
@@ -122,9 +126,9 @@ def test3():
 
 def test4():
     # client1 and client2 attempt to simultaniously write to a file, client 2 can't lock the file and a timeout exception is raised
-    fname = 'test1.txt'
-    f = 'test3 file contents'
-    f_ = 'test3 tests locking'
+    fname = 'test4.txt'
+    f = 'test4 file contents'
+    f_ = 'test4 tests locking'
 
     client1.open(fname, 'w')
     client1.write(fname, f)
@@ -148,6 +152,44 @@ def test4():
     assert res == f
 
 
+def test5():
+    # client1 starts a transaction and write to a file, client2 reads the file while the transaction is ongoing, client1 commits, client2 reads
+    fname = 'test5.txt'
+    f = 'test5 file contents'
+    f_ = 'test5 tests commiting transactions'
+
+    client1.open(fname, 'w')
+    try:
+        client1.write(fname, f)
+    finally:
+        client1.close(fname)
+
+    tid = client1.start_transaction()
+    client1.open(fname, 'w')
+    try:
+        client1.write(fname, f_)
+
+        client2.open(fname, 'r')
+        try:
+            res = client2.read(fname)
+
+            assert res == f
+        finally:
+            client2.close(fname)
+
+        client1.commit_transaction()
+    finally:
+        client1.close(fname)
+
+    client2.open(fname, 'r')
+    try:
+        res = client2.read(fname)
+
+        assert res == f_
+    finally:
+        client2.close(fname)
+
+
 test1()
 print 'Passed test 1'
 
@@ -159,6 +201,9 @@ print 'Passed test 3'
 
 test4()
 print 'Passed test 4'
+
+test5()
+print 'Passed test 5'
 
 
 

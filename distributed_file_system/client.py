@@ -72,7 +72,7 @@ class Client:
             if res.get('status') == 'success':
                 self.file_modes[file_name] = mode
                 self.file_positions[file_name] = 0
-                f = open(file_name.replace('/', '_'), 'wb')
+                f = open(str(self.user_id) + '_' + file_name.replace('/', '_'), 'wb')
                 try:
                     f.write(res.get('file_contents'))
                 finally:
@@ -90,7 +90,7 @@ class Client:
     def close(self, file_name):
         if self.file_modes[file_name] == 'w':
             server, file_id = self.get_file_server_details(file_name)
-            f = open(file_name.replace('/', '_'), 'rb')
+            f = open(str(self.user_id) + '_' + file_name.replace('/', '_'), 'rb')
             try:
                 bytes = f.read()
             finally:
@@ -124,7 +124,7 @@ class Client:
             return file_name
 
     def read(self, file_name, num_bytes=None):
-        f = open(file_name.replace('/', '_'), 'rb')
+        f = open(str(self.user_id) + '_' + file_name.replace('/', '_'), 'rb')
         try:
             if num_bytes:
                 f.seek(self.file_positions[file_name])
@@ -137,7 +137,7 @@ class Client:
         return res
 
     def write(self, file_name, bytes):
-        f = open(file_name.replace('/', '_'), 'wb')
+        f = open(str(self.user_id) + '_' + file_name.replace('/', '_'), 'wb')
         try:
             f.write(bytes)
         finally:
