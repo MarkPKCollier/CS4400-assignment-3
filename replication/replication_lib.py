@@ -1,9 +1,9 @@
-from random import randint
 
 class ReplicationLib:
     def __init__(self, file_server_addrs, num_copies_per_file):
         self.file_server_addrs = file_server_addrs
         self.num_copies_per_file = num_copies_per_file
+        self.fs_num = 0 # used to implement round robin work distribution
 
     def get_reference_file_server(self, file_id):
         reference_server_id = hash(file_id) % len(self.file_server_addrs)
@@ -21,10 +21,10 @@ class ReplicationLib:
     def get_file_server(self, file_id, session_key=None):
         if session_key is None:
             # if the client hasn't got a session key then randomly assign them to any server who should handle their file
-            fs_num = randint(self.num_copies_per_file-1)
+            self.fs_num = (self.fs_num + 1) % self.num_copies_per_file
         else:
             # if there is a session key then send the client back to the same server they have interacted with before
-            fs_num = (hash(session_key) % self.num_copies_per_file)
+            self.fs_num = (hash(session_key) % self.num_copies_per_file)
         
 
-        return self.get_all_file_servers_with_copy(file_id)[fs_num]
+        return self.get_all_file_servers_with_copy(file_id)[self.fs_num]
