@@ -183,5 +183,14 @@ and *num_files = number of file ids in the distributed system*
 
 Then the memory requirements of the lock service is O(*pool_size*) and the disk space requirements are O(*num_files*). But we can service up to *pool_size* parallel lock/unlock requests. So we choose how much parallisation of the lock service is desirable while maintaining constant disk space requirements.
 
+---
+
+*The lock service API (not exposed to the client) is:*
+
+POST: lock(file_id)
+
+POST: unlock(file_id)
+
+---
 
 
