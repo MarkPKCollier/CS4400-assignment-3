@@ -148,6 +148,8 @@ As per the AFS specification, clients cache files locally. On each client side o
 
 Once this file is closed any modifications to the file are pushed to the file server via a store operation. The file server then maintains consistency with file servers with replicated copies by broadcasting the modification only to these servers.
 
+NB: the caching directory contains only a very simple library which can be used by the client. Caching is primarily implemented as part of the client/file server, so the majority of the caching code exists there.
+
 ### Transactions
 
 A simple transaction service enables the user to batch queries into atomic units.
