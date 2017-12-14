@@ -140,6 +140,7 @@ class Client:
         return res
 
     def write(self, file_name, bytes):
+        assert self.file_modes[file_name] == 'w'
         f = open(str(self.user_id) + '_' + file_name.replace('/', '_'), 'wb')
         try:
             f.write(bytes)
