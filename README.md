@@ -172,6 +172,17 @@ Each service has a different secret key that it shares with the AS.
 
 TODO: Insert diagram of security protocol.
 
+---
+
+*The security service API (not exposed to the user) is:*
+
+
+GET: get_session_token(user_id, server_name)
+
+POST: create_user(user_id, password, access_level, admin_password)
+
+---
+
 ### Directory Service
 
 I use a flat file system - in effect offering a single directory. This is similar to other popular distributed file systems such as Amazon Cloud Storage and Google Cloud Storage.

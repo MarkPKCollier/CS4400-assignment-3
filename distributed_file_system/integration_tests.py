@@ -41,18 +41,20 @@ client2 = Client(user_id_2, password_2, directory_service_addr, locking_service_
 client3 = Client(user_id_3, password_3, directory_service_addr, locking_service_addr, security_service_addr, transaction_service_addr)
 
 run_tests_cmds = '''
-python distributed_file_system/api.py --port_num=5001 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5004
-python lock_service/api.py --port_num=5002 --host=127.0.0.1
-python security_service/api.py --port_num=5003 --host=127.0.0.1
-python replication/api.py --port_num=5004 --host=127.0.0.1 --num_copies_per_file=1 --file_server_addrs http://127.0.0.1:5001
-python transactions/api.py --port_num=5005 --host=127.0.0.1 --lock_service_ip=http://127.0.0.1:5002 --file_server_addrs http://127.0.0.1:5001
-python directory_service/api.py --port_num=5006 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5004
+python distributed_file_system/api.py --port_num=5001 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5006
+python distributed_file_system/api.py --port_num=5002 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5006
+python distributed_file_system/api.py --port_num=5003 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5006
+python lock_service/api.py --port_num=5004 --host=127.0.0.1
+python security_service/api.py --port_num=5005 --host=127.0.0.1
+python replication/api.py --port_num=5006 --host=127.0.0.1 --num_copies_per_file=2 --file_server_addrs http://127.0.0.1:5001 http://127.0.0.1:5002 http://127.0.0.1:5003
+python transactions/api.py --port_num=5007 --host=127.0.0.1 --lock_service_ip=http://127.0.0.1:5004 --file_server_addrs http://127.0.0.1:5001 http://127.0.0.1:5002 http://127.0.0.1:5003
+python directory_service/api.py --port_num=5007 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5006
 
 python distributed_file_system/integration_tests.py \
---directory_service_addr=http://127.0.0.1:5006 \
---locking_service_addr=http://127.0.0.1:5002 \
---security_service_addr=http://127.0.0.1:5003 \
---transaction_service_addr=http://127.0.0.1:5005
+--directory_service_addr=http://127.0.0.1:5008 \
+--locking_service_addr=http://127.0.0.1:5004 \
+--security_service_addr=http://127.0.0.1:5005 \
+--transaction_service_addr=http://127.0.0.1:5007
 '''
 
 def test1():
