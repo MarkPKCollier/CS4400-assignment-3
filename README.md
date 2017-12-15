@@ -30,7 +30,78 @@ TODO: Put whiteboard diagram of the system here.
 
 ## Usage
 
-Pass
+There are two ways to interact with the distributed file system, via a Python library which can be imported into any Python program and exposes an API similar to the Python I/O library. The other is via a GUI.
+
+I have also provided a startup script (start_file_system.py) that will fire up the various servers.
+
+### Python Client Library
+
+**Setup the client**
+
+```
+from client import Client
+client = Client(username, password, directory_service_addr, locking_service_addr, security_service_addr, transaction_service_addr)
+```
+
+**Open and read a file**
+
+```
+fname = 'path/to/file.txt'
+client.open(fname, 'r')
+res = client.read(fname)
+client.close(fname)
+```
+
+**Open and write a file**
+
+```
+fname = 'path/to/file.txt'
+client.open(fname, 'w')
+res = client.write(fname, 'write this to the file')
+client.close(fname)
+```
+
+**Start and commit a transaction**
+
+```
+fname_1 = 'path/to/file1.txt'
+fname_2 = 'path/to/file2.txt'
+
+client.start_transaction()
+
+client.open(fname, 'w')
+res = client.write(fname_1, 'write this to file 1')
+client.close(fname)
+
+client.open(fname, 'w')
+res = client.write(fname_1, 'write this to file 2')
+client.close(fname)
+
+client.commit_transaction()
+```
+
+**Cancelling a transaction**
+
+```
+fname_1 = 'path/to/file1.txt'
+fname_2 = 'path/to/file2.txt'
+
+client.start_transaction()
+
+client.open(fname, 'w')
+res = client.write(fname_1, 'write this to file 1')
+client.close(fname)
+
+client.open(fname, 'w')
+res = client.write(fname_1, 'write this to file 2')
+client.close(fname)
+
+client.cancel_transaction()
+```
+
+### GUI
+
+TODO
 
 ### Distributed Transparent File Access
 
@@ -64,7 +135,7 @@ cancel_transaction()
 
 ---
 
-*The server side API (not exposed to the client) is:*
+*The server side API (not exposed to the user) is:*
 
 
 GET: fetch(file_id, mode)
@@ -111,7 +182,7 @@ Under the hood the directory service in fact calls the replication service which
 
 ---
 
-*The directory service API (not exposed to the client) is:*
+*The directory service API (not exposed to the user) is:*
 
 
 GET: map_file_name(file_name)
@@ -134,7 +205,7 @@ The replication service exposes an API which is called by the directory service 
 
 ---
 
-*The directory service API (not exposed to the client) is:*
+*The directory service API (not exposed to the user) is:*
 
 GET: get_next_server_with_copy(file_id)
 
@@ -187,7 +258,7 @@ Then the memory requirements of the lock service is O(*pool_size*) and the disk 
 
 ---
 
-*The lock service API (not exposed to the client) is:*
+*The lock service API (not exposed to the user) is:*
 
 POST: lock(file_id)
 
