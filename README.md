@@ -59,12 +59,12 @@ client = Client(username, password, directory_service_addr, locking_service_addr
 ```
 
 **Open and write a file**
+
+```
 fname = 'path/to/file.txt'
 client.open(fname, 'w')
 res = client.write(fname, 'write this to the file')
 client.close(fname)
-```
-
 ```
 
 **Open and read a file**
@@ -116,6 +116,8 @@ client.cancel_transaction()
 
 ### GUI
 
+In addition to the Python library a simple GUI is provided to interact with the file server. The GUI is built with [Tkinter](https://wiki.python.org/moin/TkInter) and in fact just calls the provided Python library/client so is in itself a test of the ability to import the library into a Python project and use it to interact with the file server.
+
 To start the GUI go to the root of the project and run:
 
 ```
@@ -127,6 +129,22 @@ python gui.py \
 --user_id=1 \
 --password=test1
 ```
+
+**Open and write a file**
+
+![Open and write a file](https://raw.githubusercontent.com/MarkPKCollier/CS4400-assignment-3/master/images/write_to_file.gif)
+
+**Open and read a file**
+
+![Open and read a file](https://raw.githubusercontent.com/MarkPKCollier/CS4400-assignment-3/master/images/read_file.gif)
+
+**Start and commit a transaction**
+
+![Start and commit a transaction](https://raw.githubusercontent.com/MarkPKCollier/CS4400-assignment-3/master/images/commit_transaction.gif)
+
+**Cancelling a transaction**
+
+![Cancelling a transaction](https://raw.githubusercontent.com/MarkPKCollier/CS4400-assignment-3/master/images/cancel_transaction.gif)
 
 ### Distributed Transparent File Access
 
