@@ -26,7 +26,7 @@ A Python library is provided which can be used to interact with the file system.
 
 Additionally I provide a GUI applicaton with all the same operations but allowing the user to interact with the file system in a more convinient way.
 
-TODO: Put whiteboard diagram of the system here.
+![System diagram](https://raw.githubusercontent.com/MarkPKCollier/CS4400-assignment-3/master/images/system_diagram.jpg)
 
 ## Usage
 
@@ -213,7 +213,7 @@ Rivest Cipher 4 is used for fast encryption, although any other cipher could be 
 
 Each service has a different secret key that it shares with the AS.
 
-TODO: Insert diagram of security protocol.
+![Security service diagram](https://raw.githubusercontent.com/MarkPKCollier/CS4400-assignment-3/master/images/security_service_diagram.jpg)
 
 ---
 
@@ -259,7 +259,7 @@ The replication service exposes an API which is called by the directory service 
 
 ---
 
-*The directory service API (not exposed to the user) is:*
+*The replication service API (not exposed to the user) is:*
 
 GET: get_next_server_with_copy(file_id)
 
@@ -292,6 +292,18 @@ If the transaction is later committed the shadow file is copied into the master 
 If the transaction is later cancelled then the shadow file is made NULL.
 
 Through the locking service I ensure that mutliple writes on a file id cannot be made.
+
+---
+
+*The transaction service API (not exposed to the user) is:*
+
+POST: start_transaction()
+
+POST: commit_transaction(transaction_id)
+
+POST: cancel_transaction(transaction_id)
+
+---
 
 ### Lock Service
 
