@@ -56,16 +56,6 @@ lock_service_key_2, encrypted_lock_service_key_2 = session_mgr_2.get_session_key
 replication_service_key_2, encrypted_replication_service_key_2 = session_mgr_2.get_session_key('replication service')
 
 def test1():
-    '''
-    commands to run in different shells from project root directory:
-    python distributed_file_system/api.py --port_num=5001 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5004
-    python lock_service/api.py --port_num=5002 --host=127.0.0.1
-    python security_service/api.py --port_num=5003 --host=127.0.0.1
-    python replication/api.py --port_num=5004 --host=127.0.0.1 --num_copies_per_file=1 --file_server_addrs http://127.0.0.1:5001
-    python transactions/api.py --port_num=5005 --host=127.0.0.1 --lock_service_ip=http://127.0.0.1:5002 --file_server_addrs http://127.0.0.1:5001
-    python transactions/tests.py --file_server_addr=http://127.0.0.1:5001 --security_service_addr=http://127.0.0.1:5003 --transaction_service_addr=http://127.0.0.1:5005
-    '''
-
     # user 1 should create two files
     # user 2 should start a transaction and make edits to the files
     # user 1 should read the contents of the files and verify they are the same as when created
@@ -192,16 +182,6 @@ def test1():
 
 
 def test2():
-    '''
-    commands to run in different shells from project root directory:
-    python distributed_file_system/api.py --port_num=5001 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5004
-    python lock_service/api.py --port_num=5002 --host=127.0.0.1
-    python security_service/api.py --port_num=5003 --host=127.0.0.1
-    python replication/api.py --port_num=5004 --host=127.0.0.1 --num_copies_per_file=1 --file_server_addrs http://127.0.0.1:5001
-    python transactions/api.py --port_num=5005 --host=127.0.0.1 --lock_service_ip=http://127.0.0.1:5002 --file_server_addrs http://127.0.0.1:5001
-    python transactions/tests.py --file_server_addr=http://127.0.0.1:5001 --security_service_addr=http://127.0.0.1:5003 --transaction_service_addr=http://127.0.0.1:5005
-    '''
-
     # user 1 should create two files
     # user 2 should start a transaction and make edits to the files
     # user 1 should read the contents of the files and verify they are the same as when created

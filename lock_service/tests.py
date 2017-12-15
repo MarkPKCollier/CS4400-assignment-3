@@ -39,7 +39,8 @@ def test1(num_threads, increments_per_thread):
 
     def thread():
         global total
-        for _ in range(increments_per_thread):
+        i = 0
+        while i < increments_per_thread:
             r = requests.post(lock_service_addr, data=session_mgr.encrypt_msg({
                 'operation': 'lock',
                 'file_id': file_id
@@ -47,13 +48,14 @@ def test1(num_threads, increments_per_thread):
             res = session_mgr.decrypt_msg(r.json(), 'lock service')
             if res['status'] == 'success':
                 total += 1
+                i += 1
 
-            r = requests.post(lock_service_addr, data=session_mgr.encrypt_msg({
-                'operation': 'unlock',
-                'file_id': file_id
-            }, 'lock service'))
-            res = session_mgr.decrypt_msg(r.json(), 'lock service')
-            assert res['status'] == 'success'
+                r = requests.post(lock_service_addr, data=session_mgr.encrypt_msg({
+                    'operation': 'unlock',
+                    'file_id': file_id
+                }, 'lock service'))
+                res = session_mgr.decrypt_msg(r.json(), 'lock service')
+                assert res['status'] == 'success'
 
     threads = []
     for i in range(num_threads):
