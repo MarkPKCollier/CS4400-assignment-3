@@ -48,7 +48,7 @@ python lock_service/api.py --port_num=5004 --host=127.0.0.1
 python security_service/api.py --port_num=5005 --host=127.0.0.1
 python replication/api.py --port_num=5006 --host=127.0.0.1 --num_copies_per_file=2 --file_server_addrs http://127.0.0.1:5001 http://127.0.0.1:5002 http://127.0.0.1:5003
 python transactions/api.py --port_num=5007 --host=127.0.0.1 --lock_service_ip=http://127.0.0.1:5004 --file_server_addrs http://127.0.0.1:5001 http://127.0.0.1:5002 http://127.0.0.1:5003
-python directory_service/api.py --port_num=5007 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5006
+python directory_service/api.py --port_num=5008 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5006
 
 python distributed_file_system/integration_tests.py \
 --directory_service_addr=http://127.0.0.1:5008 \
