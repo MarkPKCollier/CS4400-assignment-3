@@ -32,7 +32,22 @@ TODO: Put whiteboard diagram of the system here.
 
 There are two ways to interact with the distributed file system, via a Python library which can be imported into any Python program and exposes an API similar to the Python I/O library. The other is via a GUI.
 
-I have also provided a startup script (start_file_system.py) that will fire up the various servers.
+*Starting the servers*
+
+In separate terminal windows run the following commands, which will setup 3 replicated file servers (with 2 copies of each file in the file system) and the other servers in the distributed file system:
+
+```
+python distributed_file_system/api.py --port_num=5001 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5006
+python distributed_file_system/api.py --port_num=5002 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5006
+python distributed_file_system/api.py --port_num=5003 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5006
+python lock_service/api.py --port_num=5004 --host=127.0.0.1
+python security_service/api.py --port_num=5005 --host=127.0.0.1
+python replication/api.py --port_num=5006 --host=127.0.0.1 --num_copies_per_file=2 --file_server_addrs http://127.0.0.1:5001 http://127.0.0.1:5002 http://127.0.0.1:5003
+python transactions/api.py --port_num=5007 --host=127.0.0.1 --lock_service_ip=http://127.0.0.1:5004 --file_server_addrs http://127.0.0.1:5001 http://127.0.0.1:5002 http://127.0.0.1:5003
+python directory_service/api.py --port_num=5008 --host=127.0.0.1 --replication_service_addr=http://127.0.0.1:5006
+```
+
+This will also automatically setup three users with user_ids 1, 2, 3 and passwords test1, test2 and test3.
 
 ### Python Client Library
 
@@ -43,21 +58,21 @@ from client import Client
 client = Client(username, password, directory_service_addr, locking_service_addr, security_service_addr, transaction_service_addr)
 ```
 
+**Open and write a file**
+fname = 'path/to/file.txt'
+client.open(fname, 'w')
+res = client.write(fname, 'write this to the file')
+client.close(fname)
+```
+
+```
+
 **Open and read a file**
 
 ```
 fname = 'path/to/file.txt'
 client.open(fname, 'r')
 res = client.read(fname)
-client.close(fname)
-```
-
-**Open and write a file**
-
-```
-fname = 'path/to/file.txt'
-client.open(fname, 'w')
-res = client.write(fname, 'write this to the file')
 client.close(fname)
 ```
 
@@ -101,7 +116,17 @@ client.cancel_transaction()
 
 ### GUI
 
-TODO
+To start the GUI go to the root of the project and run:
+
+```
+python gui.py \
+--directory_service_addr=http://127.0.0.1:5008 \
+--locking_service_addr=http://127.0.0.1:5004 \
+--security_service_addr=http://127.0.0.1:5005 \
+--transaction_service_addr=http://127.0.0.1:5007 \
+--user_id=1 \
+--password=test1
+```
 
 ### Distributed Transparent File Access
 

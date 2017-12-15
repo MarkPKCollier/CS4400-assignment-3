@@ -40,7 +40,7 @@ import tkMessageBox
 import tkSimpleDialog
 
 root = Tkinter.Tk(className=" Just another Text Editor")
-textPad = ScrolledText(root, width=100, height=80)
+textPad = ScrolledText(root, width=80, height=35)
 
 global open_files
 open_files = []
